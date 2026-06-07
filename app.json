@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Gati",
+    "slug": "gati",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F5EE"
+    },
+    "ios": {
+      "bundleIdentifier": "com.gati.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2A7D4F"
+      },
+      "package": "com.gati.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-font",
+        {
+          "fonts": []
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F5F5EE",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Gati uses your location to find hidden gems near you."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2A7D4F",
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "scheme": "gati",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
