@@ -2,15 +2,18 @@
  * MilestoneModal — full-screen celebration overlay.
  *
  * Shown when the user earns a milestone (streak, days alive, etc.).
- * Features:
- *  - 40 falling confetti-like particles (Reanimated 3 spring + timing)
- *  - Icon scale-in with continuous idle pulse
- *  - Typewriter headline, fade-in subtitle
- *  - Share (native) + Continue buttons
- *  - Heavy haptic on entry
+ * FULL-SCREEN takeover celebration:
+ *  - Deep forest gradient backdrop, edge to edge
+ *  - 40 falling confetti particles tuned for the dark background
+ *  - Glowing icon ring, typewriter headline, fade-in subtitle
+ *  - Share (native) + Continue
+ *  - Success haptic on entry
  *
- * NO emojis. NO purple. NO orange.
- * Forest green + gold palette.
+ * Only fires for milestones earned WHILE using the app — pre-existing
+ * ones (e.g. "5,000 days alive" met before install) are seeded as seen
+ * during onboarding and never celebrated retroactively.
+ *
+ * NO emojis. NO purple. NO orange. Forest green + gold palette.
  */
 import React, {
   useEffect,
@@ -41,6 +44,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { MilestoneDef } from '@/engine/milestoneEngine';
@@ -50,8 +54,8 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 // ─── Confetti particle config ─────────────────────────────────
 const PARTICLE_COUNT = 40;
 const PARTICLE_COLORS = [
-  colors.green500, colors.green300, colors.gold, colors.goldLight,
-  colors.green700, colors.green100,
+  colors.gold, colors.goldLight, colors.green300, colors.green100,
+  colors.white, colors.green500,
 ];
 
 interface ParticleConfig {
@@ -156,8 +160,10 @@ function MilestoneIcon({ def }: { def: MilestoneDef }) {
   }));
 
   return (
-    <Animated.View style={[styles.iconOuter, { backgroundColor: def.iconBg }, style]}>
-      <Ionicons name={def.icon as any} size={48} color={def.iconColor} />
+    <Animated.View style={[styles.iconHalo, style]}>
+      <View style={[styles.iconOuter, { backgroundColor: def.iconBg }]}>
+        <Ionicons name={def.icon as any} size={48} color={def.iconColor} />
+      </View>
     </Animated.View>
   );
 }
@@ -175,7 +181,9 @@ function TypewriterText({
   const [displayed, setDisplayed] = useState('');
 
   useEffect(() => {
-    setDisplayed('');
+    // No `setDisplayed('')` reset here: the parent gives this component a
+    // `key` per milestone, so a new milestone remounts it with empty state.
+    // Resetting inside the effect cascaded an extra render on every open.
     let i     = 0;
     let timer = setTimeout(() => {
       const interval = setInterval(() => {
@@ -204,22 +212,37 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
   const particles  = useMemo(() => makeParticles(), []);
   const [typeDone, setTypeDone] = useState(false);
 
-  // Entrance / exit animation
-  const modalY    = useSharedValue(SCREEN_H);
-  const overlayOp = useSharedValue(0);
-  const contentOp = useSharedValue(0);
+  // Entrance / exit animation — full-screen pop, not a bottom sheet
+  const sheetScale = useSharedValue(0.94);
+  const overlayOp  = useSharedValue(0);
+  const contentOp  = useSharedValue(0);
   const subtitleOp = useSharedValue(0);
 
   const visible = milestone !== null;
 
+  // Reset the typewriter flag during render when the milestone changes. This
+  // is React's documented "adjusting state when a prop changes" pattern and
+  // avoids the extra render pass that a setState-in-effect causes.
+  const milestoneId = milestone?.id ?? null;
+  const [lastMilestoneId, setLastMilestoneId] = useState(milestoneId);
+  if (milestoneId !== lastMilestoneId) {
+    setLastMilestoneId(milestoneId);
+    setTypeDone(false);
+  }
+
   useEffect(() => {
     if (visible) {
-      setTypeDone(false);
-      overlayOp.value = withTiming(1, { duration: 280 });
-      modalY.value    = withSpring(0, { stiffness: 200, damping: 22 });
-      contentOp.value = withDelay(200, withTiming(1, { duration: 300 }));
-      // Fire heavy haptic
+      overlayOp.value  = withTiming(1, { duration: 300 });
+      sheetScale.value = withSpring(1, { stiffness: 220, damping: 22, overshootClamping: true });
+      contentOp.value  = withDelay(180, withTiming(1, { duration: 320 }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      // Reset to the pre-entrance state when hidden so the next milestone always
+      // pops in fresh — even if the parent cleared it without animateOut.
+      overlayOp.value  = 0;
+      sheetScale.value = 0.94;
+      contentOp.value  = 0;
+      subtitleOp.value = 0;
     }
   }, [visible]);
 
@@ -230,9 +253,9 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
   }, [typeDone]);
 
   const animateOut = useCallback((cb: () => void) => {
-    overlayOp.value = withTiming(0, { duration: 280 });
-    modalY.value    = withTiming(SCREEN_H, { duration: 300, easing: Easing.bezier(0.11, 0, 0.5, 0) });
-    setTimeout(cb, 320);
+    overlayOp.value  = withTiming(0, { duration: 260 });
+    sheetScale.value = withTiming(0.96, { duration: 260, easing: Easing.bezier(0.11, 0, 0.5, 0) });
+    setTimeout(cb, 290);
   }, []);
 
   const handleContinue = useCallback(() => {
@@ -242,17 +265,22 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
   const handleShare = useCallback(async () => {
     if (!milestone) return;
     try {
-      await Share.share({ message: milestone.shareText });
+      // Append a consistent CTA so recipients have a path to the app.
+      // The shareText is written as a standalone line — the CTA is a
+      // second paragraph so it works in iMessage, Twitter, WhatsApp, etc.
+      const message = `${milestone.shareText}\n\nMy life, in numbers — https://gati.app`;
+      await Share.share({ message, title: milestone.title });
     } catch {
-      // share cancelled
+      // share cancelled or not supported
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [milestone]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOp.value,
   }));
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: modalY.value }],
+    transform: [{ scale: sheetScale.value }],
   }));
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOp.value,
@@ -269,24 +297,41 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
       transparent
       statusBarTranslucent
       animationType="none"
+      onRequestClose={handleContinue}
     >
-      {/* ── Dim overlay ── */}
+      {/* ── Full-screen gradient stage ── */}
       <Animated.View style={[styles.overlay, overlayStyle]}>
-        {/* ── Particles (render behind everything) ── */}
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        <LinearGradient
+          colors={['#0F2A1A', colors.green900, '#2A5C3D']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.4, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* ── Particles ── */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {particles.map((p) => (
             <Particle key={p.id} cfg={p} />
           ))}
         </View>
 
-        {/* ── Card ── */}
+        {/* ── Celebration content, centered full-screen ── */}
         <Animated.View style={[styles.sheet, sheetStyle]}>
           <Animated.View style={[styles.innerContent, contentStyle]}>
+            {/* Eyebrow */}
+            <View style={styles.eyebrow}>
+              <Ionicons name="trophy" size={12} color={colors.gold} />
+              <Text style={styles.eyebrowText}>MILESTONE REACHED</Text>
+            </View>
+
             {/* Icon */}
             <MilestoneIcon def={milestone} />
 
             {/* Headline — typewriter */}
             <TypewriterText
+              // Remount per milestone so the typewriter starts from empty
+              // without needing to reset its own state in an effect.
+              key={milestone.id}
               text={milestone.title}
               delay={500}
               onDone={() => setTypeDone(true)}
@@ -309,7 +354,7 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
                   pressed && { opacity: 0.8 },
                 ]}
               >
-                <Ionicons name="share-social-outline" size={18} color={colors.green700} />
+                <Ionicons name="share-social-outline" size={18} color={colors.white} />
                 <Text style={styles.shareBtnText}>Share</Text>
               </Pressable>
 
@@ -321,7 +366,7 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
                 ]}
               >
                 <Text style={styles.continueBtnText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.white} />
+                <Ionicons name="arrow-forward" size={16} color={colors.green900} />
               </Pressable>
             </View>
           </Animated.View>
@@ -334,64 +379,89 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
 // ─── Styles ───────────────────────────────────────────────────
 const styles = StyleSheet.create({
   overlay: {
-    flex:            1,
-    backgroundColor: 'rgba(10, 24, 14, 0.72)',
-    justifyContent:  'flex-end',
+    flex:           1,
+    justifyContent: 'center',
   },
 
+  // Full-screen stage — content centered, buttons pinned by spacing
   sheet: {
-    backgroundColor:     colors.surface,
-    borderTopLeftRadius:  radius['2xl'],
-    borderTopRightRadius: radius['2xl'],
-    paddingTop:          spacing[8],
-    paddingBottom:       Platform.OS === 'ios' ? spacing[10] : spacing[8],
-    paddingHorizontal:   spacing[6],
-    // subtle top shadow
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius:  12,
-    elevation:     12,
+    flex:              1,
+    justifyContent:    'center',
+    paddingTop:        Platform.OS === 'ios' ? spacing[12] : spacing[10],
+    paddingBottom:     Platform.OS === 'ios' ? spacing[10] : spacing[8],
+    paddingHorizontal: spacing[6],
   },
 
   innerContent: {
-    alignItems: 'center',
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
 
-  iconOuter: {
-    width:           104,
-    height:          104,
-    borderRadius:    52,
+  eyebrow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing[2],
+    paddingVertical:   spacing[1] + 2,
+    paddingHorizontal: spacing[3],
+    borderRadius:      radius.full,
+    borderWidth:       1,
+    borderColor:       'rgba(201,168,76,0.45)',
+    backgroundColor:   'rgba(201,168,76,0.12)',
+    marginBottom:      spacing[7],
+  },
+  eyebrowText: {
+    fontFamily:    fontFamily.bold,
+    fontSize:      10.5,
+    color:         colors.gold,
+    letterSpacing: 1.6,
+  },
+
+  iconHalo: {
+    width:           136,
+    height:          136,
+    borderRadius:    68,
     alignItems:      'center',
     justifyContent:  'center',
-    marginBottom:    spacing[6],
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth:     1,
+    borderColor:     'rgba(255,255,255,0.18)',
+    marginBottom:    spacing[7],
+  },
+  iconOuter: {
+    width:          104,
+    height:         104,
+    borderRadius:   52,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
 
   headline: {
-    fontFamily:    fontFamily.bold,
+    fontFamily:    fontFamily.extraBold,
     fontSize:      28,
-    color:         colors.textPrimary,
+    color:         colors.white,
     letterSpacing: -0.5,
     textAlign:     'center',
     marginBottom:  spacing[3],
-    minHeight:     36,
+    minHeight:     38,
   },
 
   subtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize:   15,
-    color:      colors.textSecondary,
-    textAlign:  'center',
-    lineHeight: 22,
+    fontFamily:        fontFamily.regular,
+    fontSize:          14,
+    color:             colors.green100,
+    textAlign:         'center',
+    lineHeight:        21.5,
     paddingHorizontal: spacing[4],
-    marginBottom: spacing[5],
+    marginBottom:      spacing[5],
   },
 
   divider: {
-    width:           '100%',
-    height:          1,
-    backgroundColor: colors.borderLight,
-    marginBottom:    spacing[5],
+    width:           56,
+    height:          2,
+    borderRadius:    radius.full,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginBottom:    spacing[6],
   },
 
   buttonRow: {
@@ -408,14 +478,14 @@ const styles = StyleSheet.create({
     gap:             spacing[2],
     paddingVertical: spacing[4],
     borderRadius:    radius.lg,
-    backgroundColor: colors.green50,
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth:     1,
-    borderColor:     colors.green100,
+    borderColor:     'rgba(255,255,255,0.28)',
   },
   shareBtnText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   15,
-    color:      colors.green700,
+    fontSize:   14,
+    color:      colors.white,
   },
 
   continueBtn: {
@@ -426,11 +496,11 @@ const styles = StyleSheet.create({
     gap:             spacing[2],
     paddingVertical: spacing[4],
     borderRadius:    radius.lg,
-    backgroundColor: colors.green700,
+    backgroundColor: colors.white,
   },
   continueBtnText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   15,
-    color:      colors.white,
+    fontSize:   14,
+    color:      colors.green900,
   },
 });

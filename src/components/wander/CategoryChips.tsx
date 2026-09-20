@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: fontFamily.medium,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
 });

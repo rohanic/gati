@@ -79,12 +79,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.medium,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textSecondary,
   },
   rightLabel: {
     fontFamily: fontFamily.bold,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.green700,
   },
   track: {

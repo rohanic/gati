@@ -49,3 +49,10 @@ coverage/
 .idea/
 .vscode/
 *.log
+
+# Play Store service account (used by `eas submit`) — never commit
+play-service-account.json
+*-service-account.json
+
+# Supabase CLI local state (project ref, cached versions) — machine-specific
+supabase/.temp/

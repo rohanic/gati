@@ -1,11 +1,10 @@
 /**
  * Shared wrapper for onboarding screens.
- * Renders: top progress dots + optional back arrow, then children.
+ * Renders: spring-animated progress bar + back arrow, then children.
  */
 import React from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   ViewStyle,
@@ -22,17 +21,50 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { colors, spacing, radius, fontFamily } from '@/theme';
+import { colors, spacing, radius } from '@/theme';
 
-const TOTAL_STEPS = 5; // name, birthday, lifestyle, interests, notifications
+const TOTAL_STEPS = 13; // name, birthday, sleep, coffee, water, screentime, music, meals, activity, commute, personality, interests, notifications
 
 interface OnboardingShellProps {
-  step:          number;       // 1-based, 0 = welcome (no dots)
+  step:          number;
   showBack?:     boolean;
   children:      React.ReactNode;
   scrollable?:   boolean;
   contentStyle?: ViewStyle;
 }
+
+function ProgressBar({ step }: { step: number }) {
+  const progress = useSharedValue((step - 1) / TOTAL_STEPS);
+
+  React.useEffect(() => {
+    progress.value = withSpring(step / TOTAL_STEPS, { stiffness: 160, damping: 22 });
+  }, [step]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${Math.min(progress.value * 100, 100)}%` as any,
+  }));
+
+  return (
+    <View style={pbStyles.track}>
+      <Animated.View style={[pbStyles.fill, fillStyle]} />
+    </View>
+  );
+}
+
+const pbStyles = StyleSheet.create({
+  track: {
+    flex:            1,
+    height:          3,
+    backgroundColor: colors.green100,
+    borderRadius:    radius.full,
+    overflow:        'hidden',
+  },
+  fill: {
+    height:          3,
+    backgroundColor: colors.green700,
+    borderRadius:    radius.full,
+  },
+});
 
 export function OnboardingShell({
   step,
@@ -64,12 +96,11 @@ export function OnboardingShell({
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Top bar */}
         <View style={styles.topBar}>
           {showBack && step > 0 ? (
             <Pressable
               onPress={handleBack}
-              style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
+              style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.55 }]}
               hitSlop={12}
             >
               <Ionicons name="arrow-back" size={22} color={colors.textSecondary} />
@@ -78,51 +109,14 @@ export function OnboardingShell({
             <View style={styles.backBtn} />
           )}
 
-          {/* Step dots */}
-          {step > 0 ? (
-            <View style={styles.dots}>
-              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-                <StepDot key={i} active={i < step} current={i === step - 1} />
-              ))}
-            </View>
-          ) : (
-            <View />
-          )}
+          {step > 0 && <ProgressBar step={step} />}
 
-          {/* Spacer to balance back button */}
           <View style={styles.backBtn} />
         </View>
 
         {inner}
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-function StepDot({ active, current }: { active: boolean; current: boolean }) {
-  const width = useSharedValue(current ? 20 : active ? 8 : 6);
-
-  React.useEffect(() => {
-    width.value = withSpring(current ? 20 : active ? 8 : 6, {
-      stiffness: 300,
-      damping: 25,
-    });
-  }, [active, current]);
-
-  const style = useAnimatedStyle(() => ({ width: width.value }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.dot,
-        style,
-        {
-          backgroundColor: active
-            ? colors.green700
-            : colors.green100,
-        },
-      ]}
-    />
   );
 }
 
@@ -135,24 +129,15 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection:     'row',
     alignItems:        'center',
-    justifyContent:    'space-between',
+    gap:               spacing[3],
     paddingHorizontal: spacing[5],
     paddingVertical:   spacing[3],
   },
   backBtn: {
-    width:  36,
-    height: 36,
+    width:          36,
+    height:         36,
     alignItems:     'center',
     justifyContent: 'center',
-  },
-  dots: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing[1],
-  },
-  dot: {
-    height:       6,
-    borderRadius: radius.full,
   },
   inner: {
     flex:              1,

@@ -1,5 +1,19 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+/**
+ * Welcome screen — first screen ever seen.
+ * Responsive layout via useWindowDimensions.
+ * Logo: overflow:hidden wrapper fixes G clipping on Android.
+ * Layout: flex distribution (no absolute positioning) so it works
+ * on every device height from iPhone SE to iPad.
+ */
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
@@ -9,108 +23,157 @@ import Animated, {
   withDelay,
   withTiming,
   withSequence,
-  withRepeat,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 
 export default function WelcomeScreen() {
-  // ── Animation shared values ──
-  const logoScale   = useSharedValue(0.55);
-  const logoOpacity = useSharedValue(0);
-  const ringScale   = useSharedValue(0.8);
-  const ringOpacity = useSharedValue(0);
-  const titleY      = useSharedValue(32);
-  const titleOp     = useSharedValue(0);
-  const taglineY    = useSharedValue(24);
-  const taglineOp   = useSharedValue(0);
-  const btnY        = useSharedValue(28);
-  const btnOp       = useSharedValue(0);
+  const { width, height } = useWindowDimensions();
+
+  // Responsive scale: SE-class (≤667) → small, tall phones → normal, tablets → large
+  const isSmall  = height < 700;
+  const isLarge  = height > 900;
+
+  const LOGO_SIZE    = isSmall ? 88  : isLarge ? 128 : 108;
+  const LOGO_RADIUS  = isSmall ? 20  : isLarge ? 28  : 24;
+  const WORD_SIZE    = isSmall ? 52  : isLarge ? 72  : 62;
+  const WORD_LS      = isSmall ? -2  : -2.5;
+  const TAG_SIZE     = isSmall ? 14  : 16;
+  const LOGO_GAP     = isSmall ? spacing[2] : spacing[3];   // logo → wordmark
+  const TAG_GAP      = isSmall ? spacing[2] : spacing[3];   // wordmark → tagline
+
+  // ── Animations ──
+  const logoScale  = useSharedValue(0.82);
+  const logoOp     = useSharedValue(0);
+  const wordmarkY  = useSharedValue(24);
+  const wordmarkOp = useSharedValue(0);
+  const taglineY   = useSharedValue(16);
+  const taglineOp  = useSharedValue(0);
+  const btnY       = useSharedValue(20);
+  const btnOp      = useSharedValue(0);
+  const btnScale   = useSharedValue(1);
 
   useEffect(() => {
-    // Logo entrance
-    logoScale.value   = withSpring(1, { stiffness: 180, damping: 18 });
-    logoOpacity.value = withTiming(1, { duration: 400 });
+    logoScale.value  = withSpring(1, { stiffness: 200, damping: 18 });
+    logoOp.value     = withTiming(1, { duration: 380 });
 
-    // Pulsing ring (continuous)
-    ringOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
-    ringScale.value   = withDelay(
-      200,
-      withRepeat(
-        withSequence(
-          withTiming(1.35, { duration: 1600 }),
-          withTiming(1.0,  { duration: 1600 })
-        ),
-        -1,
-        true
-      )
-    );
+    wordmarkY.value  = withDelay(340, withSpring(0, { stiffness: 200, damping: 18 }));
+    wordmarkOp.value = withDelay(340, withTiming(1, { duration: 340 }));
 
-    // Title
-    titleY.value  = withDelay(250, withSpring(0, { stiffness: 200, damping: 18 }));
-    titleOp.value = withDelay(250, withTiming(1, { duration: 380 }));
+    taglineY.value   = withDelay(500, withSpring(0, { stiffness: 200, damping: 18 }));
+    taglineOp.value  = withDelay(500, withTiming(1, { duration: 300 }));
 
-    // Tagline
-    taglineY.value  = withDelay(420, withSpring(0, { stiffness: 200, damping: 18 }));
-    taglineOp.value = withDelay(420, withTiming(1, { duration: 340 }));
-
-    // Button
-    btnY.value  = withDelay(600, withSpring(0, { stiffness: 200, damping: 18 }));
-    btnOp.value = withDelay(600, withTiming(1, { duration: 340 }));
+    btnY.value       = withDelay(660, withSpring(0, { stiffness: 200, damping: 18 }));
+    btnOp.value      = withDelay(660, withTiming(1, { duration: 300 }));
   }, []);
 
-  const logoStyle    = useAnimatedStyle(() => ({
-    opacity:   logoOpacity.value,
+  const logoStyle     = useAnimatedStyle(() => ({
+    opacity:   logoOp.value,
     transform: [{ scale: logoScale.value }],
   }));
-  const ringStyle    = useAnimatedStyle(() => ({
-    opacity:   ringOpacity.value,
-    transform: [{ scale: ringScale.value }],
+  const wordmarkStyle = useAnimatedStyle(() => ({
+    opacity:   wordmarkOp.value,
+    transform: [{ translateY: wordmarkY.value }],
   }));
-  const titleStyle   = useAnimatedStyle(() => ({
-    opacity:   titleOp.value,
-    transform: [{ translateY: titleY.value }],
-  }));
-  const taglineStyle = useAnimatedStyle(() => ({
+  const taglineStyle  = useAnimatedStyle(() => ({
     opacity:   taglineOp.value,
     transform: [{ translateY: taglineY.value }],
   }));
-  const btnStyle     = useAnimatedStyle(() => ({
+  const btnStyle      = useAnimatedStyle(() => ({
     opacity:   btnOp.value,
-    transform: [{ translateY: btnY.value }],
+    transform: [{ translateY: btnY.value }, { scale: btnScale.value }],
   }));
 
+  // Guard so a fast double-tap can't push /onboarding/name twice. The button
+  // bounce runs in parallel; navigation fires immediately.
+  const beganRef = useRef(false);
   const handleBegin = () => {
+    if (beganRef.current) return;
+    beganRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    btnScale.value = withSequence(
+      withSpring(0.95, { stiffness: 400, damping: 20 }),
+      withSpring(1.0,  { stiffness: 300, damping: 25 })
+    );
     router.push('/onboarding/name');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ─── Hero ─── */}
-      <View style={styles.hero}>
-        {/* Pulsing outer ring */}
-        <Animated.View style={[styles.ring, ringStyle]} />
 
-        {/* Logo circle */}
-        <Animated.View style={[styles.logoCircle, logoStyle]}>
-          <Text style={styles.logoLetter}>G</Text>
+      {/* ── Top spacer — pushes brand block into upper-centre ── */}
+      <View style={{ flex: 1 }} />
+
+      {/* ── Brand block ── */}
+      <View style={styles.brand}>
+
+        {/* Logo — overflow:hidden ensures borderRadius clips the image
+            on Android as well as iOS (plain borderRadius on <Image>
+            doesn't clip on Android without this wrapper). */}
+        <Animated.View
+          style={[
+            styles.logoWrap,
+            logoStyle,
+            {
+              width:        LOGO_SIZE,
+              height:       LOGO_SIZE,
+              borderRadius: LOGO_RADIUS,
+              marginBottom: LOGO_GAP,
+            },
+          ]}
+        >
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="cover"
+          />
         </Animated.View>
-      </View>
 
-      {/* ─── Copy ─── */}
-      <View style={styles.copy}>
-        <Animated.Text style={[styles.appName, titleStyle]}>Gati</Animated.Text>
-        <Animated.Text style={[styles.tagline, taglineStyle]}>
-          Your life,{'\n'}in numbers and places.
+        {/* Wordmark
+            lineHeight: 1.3× gives the "g" descender room to breathe.
+            paddingBottom: extra safety so the descender loop never clips
+            against the text box boundary on any font renderer. */}
+        <Animated.Text
+          style={[
+            styles.wordmark,
+            wordmarkStyle,
+            {
+              fontSize:      WORD_SIZE,
+              letterSpacing: WORD_LS,
+              lineHeight:    WORD_SIZE * 1.3,
+              paddingBottom: WORD_SIZE * 0.08,
+              marginBottom:  TAG_GAP,
+            },
+          ]}
+        >
+          gati
         </Animated.Text>
+
+        {/* Tagline */}
+        <Animated.Text
+          style={[styles.tagline, taglineStyle, { fontSize: TAG_SIZE }]}
+        >
+          Your life, in numbers.
+        </Animated.Text>
+
       </View>
 
-      {/* ─── CTA ─── */}
-      <Animated.View style={[styles.ctaWrap, btnStyle]}>
+      {/* ── Bottom spacer — twice the top so brand sits above centre ── */}
+      <View style={{ flex: 2 }} />
+
+      {/* ── CTA — always at bottom, no absolute positioning ── */}
+      <Animated.View
+        style={[
+          styles.ctaWrap,
+          btnStyle,
+          { paddingHorizontal: spacing[6], paddingBottom: spacing[4] },
+        ]}
+      >
         <Pressable
           onPress={handleBegin}
-          style={({ pressed }) => [styles.beginBtn, pressed && styles.beginBtnPressed]}
+          style={({ pressed }) => [styles.beginBtn, pressed && { opacity: 0.9 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Begin"
         >
           <Text style={styles.beginText}>Begin</Text>
         </Pressable>
@@ -118,85 +181,50 @@ export default function WelcomeScreen() {
           No account needed · Your data stays on your device
         </Text>
       </Animated.View>
+
     </SafeAreaView>
   );
 }
-
-const LOGO_SIZE = 96;
-const RING_SIZE = LOGO_SIZE * 1.9;
 
 const styles = StyleSheet.create({
   safe: {
     flex:            1,
     backgroundColor: colors.background,
     alignItems:      'center',
-    justifyContent:  'center',
   },
 
-  // Hero
-  hero: {
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing[10],
+  // ── Brand
+  brand: {
+    alignItems: 'center',
   },
-  ring: {
-    position:        'absolute',
-    width:           RING_SIZE,
-    height:          RING_SIZE,
-    borderRadius:    RING_SIZE / 2,
-    borderWidth:     1.5,
-    borderColor:     colors.green300,
-    backgroundColor: colors.green50,
+
+  // Logo wrapper — overflow:hidden is the fix for G clipping
+  logoWrap: {
+    overflow: 'hidden',
+    // width / height / borderRadius / marginBottom injected inline (responsive)
   },
-  logoCircle: {
-    width:           LOGO_SIZE,
-    height:          LOGO_SIZE,
-    borderRadius:    LOGO_SIZE / 2,
-    backgroundColor: colors.green700,
-    alignItems:      'center',
-    justifyContent:  'center',
-    shadowColor:     colors.green900,
-    shadowOffset:    { width: 0, height: 8 },
-    shadowOpacity:   0.22,
-    shadowRadius:    18,
-    elevation:       12,
+  logoImage: {
+    width:  '100%',
+    height: '100%',
   },
-  logoLetter: {
+
+  // Wordmark — fontSize / letterSpacing / lineHeight / marginBottom inline
+  wordmark: {
     fontFamily: fontFamily.extraBold,
-    fontSize:   48,
-    color:      colors.white,
-    lineHeight: 56,
+    color:      colors.textPrimary,
   },
 
-  // Copy
-  copy: {
-    alignItems:    'center',
-    marginBottom:  spacing[14],
-    paddingHorizontal: spacing[8],
-  },
-  appName: {
-    fontFamily:   fontFamily.extraBold,
-    fontSize:     48,
-    color:        colors.textPrimary,
-    letterSpacing: -1,
-    marginBottom: spacing[3],
-  },
   tagline: {
-    fontFamily: fontFamily.regular,
-    fontSize:   18,
-    color:      colors.textSecondary,
-    textAlign:  'center',
-    lineHeight: 27,
+    fontFamily:    fontFamily.regular,
+    color:         colors.textSecondary,
+    letterSpacing: 0.15,
   },
 
   // CTA
   ctaWrap: {
-    position:          'absolute',
-    bottom:            spacing[10],
-    left:              spacing[6],
-    right:             spacing[6],
-    alignItems:        'center',
-    gap:               spacing[3],
+    width:      '100%',
+    alignItems: 'center',
+    gap:        spacing[3],
   },
   beginBtn: {
     width:           '100%',
@@ -210,19 +238,15 @@ const styles = StyleSheet.create({
     shadowRadius:    12,
     elevation:       6,
   },
-  beginBtnPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
   beginText: {
-    fontFamily: fontFamily.bold,
-    fontSize:   17,
-    color:      colors.white,
+    fontFamily:    fontFamily.bold,
+    fontSize:      16,
+    color:         colors.white,
     letterSpacing: 0.2,
   },
   legalNote: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
     textAlign:  'center',
   },

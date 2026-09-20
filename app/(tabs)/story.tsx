@@ -8,13 +8,14 @@
  *  - Tap item: scale-down → navigate
  *  - Year pills: spring-scale on select
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
   ScrollView,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -35,8 +36,14 @@ import {
 } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { useUserStore, useStatsStore, useWanderStore } from '@/store/userStore';
+import { useAccess } from '@/hooks/useAccess';
+import { useStoryStore } from '@/store/storyStore';
+import { computeBestStreakFromRanges } from '@/hooks/useStreak';
+import { NoteBottomSheet } from '@/components/story/NoteBottomSheet';
 import { STAT_DEFINITIONS } from '@/data/statDefinitions';
+import { MILESTONE_DEFINITIONS } from '@/engine/milestoneEngine';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
+import type { StoryAnnotation } from '@/store/storyStore';
 
 // ─── Timeline event types ─────────────────────────────────────
 type EventType = 'stat' | 'place' | 'milestone';
@@ -57,34 +64,25 @@ const EVENT_DOT: Record<EventType, { dot: string; bg: string; icon: string }> = 
   milestone: { dot: colors.gold,        bg: colors.goldBg,   icon: 'trophy-outline'      },
 };
 
-// ─── Streak from open history ─────────────────────────────────
-function computeBestStreak(openHistory: string[]): number {
-  if (openHistory.length === 0) return 0;
-  const sorted = [...openHistory].sort();
-  let best = 1;
-  let current = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = parseISO(sorted[i - 1]);
-    const curr = parseISO(sorted[i]);
-    const diff = differenceInDays(curr, prev);
-    if (diff === 1)      { current++; best = Math.max(best, current); }
-    else if (diff > 1)   { current = 1; }
-    // diff === 0 (duplicate date): skip
-  }
-  return best;
-}
-
 // ─── Animated timeline entry ──────────────────────────────────
 function TimelineEntry({
   event,
   index,
   isLast,
+  annotation,
+  onNote,
 }: {
-  event:  TimelineEvent;
-  index:  number;
-  isLast: boolean;
+  event:       TimelineEvent;
+  index:       number;
+  isLast:      boolean;
+  annotation?: StoryAnnotation;
+  onNote:      (eventId: string, eventTitle: string) => void;
 }) {
-  const meta  = EVENT_DOT[event.type];
+  const meta   = EVENT_DOT[event.type];
+  const pinned = annotation?.pinned ?? false;
+  // Pinned events use gold dot; otherwise the event-type colour
+  const dotColor = pinned ? colors.gold : meta.dot;
+
   const tx    = useSharedValue(-40);
   const op    = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -110,65 +108,98 @@ function TimelineEntry({
   const handlePressOut = () => {
     scale.value = withSpring(1, { stiffness: 300, damping: 25 });
   };
-  const handlePress    = () => {
-    if (!event.refId) return;
+  // onPressIn/Out already drive the visual press-scale, so navigate immediately
+  // here. A ref guard stops a fast double-tap from stacking two screens.
+  const navigatingRef = useRef(false);
+  const handlePress = () => {
+    if (!event.refId || navigatingRef.current) return;
+    navigatingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSpring(0.97, { stiffness: 500, damping: 22 });
-    setTimeout(() => {
-      scale.value = withSpring(1, { stiffness: 300, damping: 25 });
-      if (event.type === 'stat') {
-        router.push({
-          pathname: '/(tabs)/numbers/[statId]',
-          params:   { statId: event.refId! },
-        });
-      } else if (event.type === 'place') {
-        router.push({
-          pathname: '/(tabs)/wander/[placeId]',
-          params:   { placeId: event.refId! },
-        });
-      }
-    }, 140);
+    const refId = event.refId;
+    if (event.type === 'stat') {
+      router.push({ pathname: '/(tabs)/numbers/[statId]', params: { statId: refId } });
+    } else if (event.type === 'place') {
+      router.push({ pathname: '/(tabs)/wander/[placeId]', params: { placeId: refId } });
+    }
+    setTimeout(() => { navigatingRef.current = false; }, 600);
+  };
+
+  const handleNotePress = () => {
+    Haptics.selectionAsync();
+    onNote(event.id, event.title);
+  };
+
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onNote(event.id, event.title);
   };
 
   return (
     <Animated.View style={[styles.entryRow, enterStyle]}>
       {/* Left rail + dot */}
       <View style={styles.railCol}>
-        <View style={[styles.dot, { backgroundColor: meta.dot }]} />
+        <View style={[styles.dot, { backgroundColor: dotColor }]}>
+          {pinned && (
+            <Ionicons name="bookmark" size={7} color={colors.white} />
+          )}
+        </View>
         {!isLast && <View style={styles.rail} />}
       </View>
 
-      {/* Card */}
-      <Animated.View style={[styles.entryCardWrap, pressStyle]}>
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={handlePress}
-          android_ripple={event.refId ? { color: colors.green50 } : null}
-          style={styles.entryCard}
-        >
-          {/* Icon pill */}
-          <View style={[styles.entryIconPill, { backgroundColor: meta.bg }]}>
-            <Ionicons name={meta.icon as any} size={16} color={meta.dot} />
-          </View>
+      {/* Card + note block */}
+      <View style={styles.entryCardWrap}>
+        <Animated.View style={pressStyle}>
+          <Pressable
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onPress={handlePress}
+            onLongPress={handleLongPress}
+            delayLongPress={400}
+            android_ripple={{ color: colors.green50 }}
+            style={[styles.entryCard, pinned && styles.entryCardPinned]}
+            accessibilityHint="Long press to add or edit a note"
+          >
+            {/* Icon pill */}
+            <View style={[styles.entryIconPill, { backgroundColor: meta.bg }]}>
+              <Ionicons name={meta.icon as any} size={16} color={meta.dot} />
+            </View>
 
-          {/* Text */}
-          <View style={styles.entryText}>
-            <Text style={styles.entryTitle} numberOfLines={1}>{event.title}</Text>
-            <Text style={styles.entrySubtitle} numberOfLines={1}>{event.subtitle}</Text>
-          </View>
+            {/* Text */}
+            <View style={styles.entryText}>
+              <Text style={styles.entryTitle} numberOfLines={1}>{event.title}</Text>
+              <Text style={styles.entrySubtitle} numberOfLines={1}>{event.subtitle}</Text>
+            </View>
 
-          {/* Date */}
-          <Text style={styles.entryDate}>
-            {format(parseISO(event.date), 'd MMM')}
-          </Text>
+            {/* Date */}
+            <Text style={styles.entryDate}>
+              {format(parseISO(event.date), 'd MMM')}
+            </Text>
 
-          {/* Chevron (if navigable) */}
-          {event.refId && (
-            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-          )}
-        </Pressable>
-      </Animated.View>
+            {/* Chevron (if navigable) or note button */}
+            <View style={styles.entryActions}>
+              {event.refId && (
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        {/* Existing note display */}
+        {annotation && annotation.text.length > 0 && (
+          <Pressable
+            onPress={handleNotePress}
+            style={styles.noteBlock}
+            accessibilityRole="button"
+            accessibilityLabel="Edit your note"
+          >
+            <View style={styles.noteAccent} />
+            <Text style={styles.noteText} numberOfLines={3}>
+              {annotation.text}
+            </Text>
+          </Pressable>
+        )}
+
+      </View>
     </Animated.View>
   );
 }
@@ -178,10 +209,14 @@ function MonthSection({
   monthLabel,
   events,
   baseIndex,
+  annotations,
+  onNote,
 }: {
-  monthLabel: string;
-  events:     TimelineEvent[];
-  baseIndex:  number;
+  monthLabel:  string;
+  events:      TimelineEvent[];
+  baseIndex:   number;
+  annotations: Record<string, StoryAnnotation>;
+  onNote:      (eventId: string, eventTitle: string) => void;
 }) {
   const op = useSharedValue(0);
   useEffect(() => {
@@ -200,6 +235,8 @@ function MonthSection({
           event={ev}
           index={baseIndex + i}
           isLast={i === events.length - 1}
+          annotation={annotations[ev.id]}
+          onNote={onNote}
         />
       ))}
     </View>
@@ -225,7 +262,7 @@ function YearPill({
   }, [active]);
 
   const pillStyle = useAnimatedStyle(() => ({
-    backgroundColor: fill.value === 1 ? colors.green700 : colors.white,
+    backgroundColor: fill.value > 0.5 ? colors.green700 : colors.white,
     transform:       [{ scale: scale.value }],
   }));
 
@@ -306,16 +343,67 @@ function EmptyStory() {
       <Text style={styles.emptyBody}>
         As you unlock stats and discover places, they'll appear here as a timeline of your life.
       </Text>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push('/(tabs)/today');
+        }}
+        style={styles.emptyCtaBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Today to unlock your first number"
+      >
+        <Text style={styles.emptyCtaBtnText}>Unlock your first number</Text>
+        <Ionicons name="arrow-forward" size={14} color={colors.white} />
+      </Pressable>
     </Animated.View>
   );
 }
 
 // ─── Screen ───────────────────────────────────────────────────
 export default function StoryScreen() {
-  const profile          = useUserStore((s) => s.profile);
-  const unlockedStats    = useStatsStore((s) => s.unlockedStats);
-  const openHistory      = useStatsStore((s) => s.openHistory);
-  const places           = useWanderStore((s) => s.places);
+  const profile            = useUserStore((s) => s.profile);
+  // One capability check rather than a raw entitlement comparison, so a free
+  // launch opens the full timeline without touching this screen.
+  const access             = useAccess();
+  const isFree             = !access.canSeeFullStory;
+
+  const unlockedStats      = useStatsStore((s) => s.unlockedStats);
+  const openHistoryRanges  = useStatsStore((s) => s.openHistoryRanges);
+  const maxStreakEver       = useStatsStore((s) => s.maxStreakEver);
+  const seenMilestoneIds   = useStatsStore((s) => s.seenMilestoneIds);
+  const milestoneSeenDates = useStatsStore((s) => s.milestoneSeenDates);
+  const places             = useWanderStore((s) => s.places);
+
+  // ── Annotations ──
+  const annotations    = useStoryStore((s) => s.annotations);
+  const setAnnotation  = useStoryStore((s) => s.setAnnotation);
+  const removeAnnotation = useStoryStore((s) => s.removeAnnotation);
+
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
+
+  // Note sheet state: { id, title } of the event being annotated, or null
+  const [noteTarget, setNoteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  const handleOpenNote = useCallback((eventId: string, eventTitle: string) => {
+    setNoteTarget({ id: eventId, title: eventTitle });
+  }, []);
+
+  const handleSaveNote = useCallback(
+    (itemId: string, text: string, pinned: boolean) => {
+      setAnnotation(itemId, text, pinned);
+    },
+    [setAnnotation]
+  );
+
+  const handleDeleteNote = useCallback(
+    (itemId: string) => { removeAnnotation(itemId); },
+    [removeAnnotation]
+  );
 
   // ── Stats summary numbers ──
   const daysAlive = useMemo(() => {
@@ -328,7 +416,12 @@ export default function StoryScreen() {
     [places]
   );
 
-  const bestStreak = useMemo(() => computeBestStreak(openHistory), [openHistory]);
+  const bestStreak = useMemo(
+    () => openHistoryRanges.length > 0
+      ? Math.max(computeBestStreakFromRanges(openHistoryRanges), maxStreakEver)
+      : maxStreakEver,
+    [openHistoryRanges, maxStreakEver],
+  );
 
   // ── Build unified event list ──
   const allEvents = useMemo<TimelineEvent[]>(() => {
@@ -343,28 +436,68 @@ export default function StoryScreen() {
         type:     'stat',
         date:     unlock.unlockedDate,
         title:    def.title,
-        subtitle: def.description.split('{')[0].trim() || def.category,
+        subtitle: def.description.length > 60
+          ? def.description.slice(0, 57).trimEnd() + '…'
+          : def.description,
         refId:    unlock.statId,
       });
     }
 
-    // Place discovery events
+    // Place events — only places the user ACTED on (saved/visited/rated).
+    // Otherwise every background fetch would flood the story with
+    // dozens of "discovered" entries that mean nothing to the user.
     for (const place of places) {
-      if (!place.discoveredDate) continue;
+      const acted = place.isSaved || place.isVisited || place.userRating !== null;
+      if (!acted) continue;
+      // Date semantics (fixed — see userStore mergeRealPlaces):
+      //   visited → visitedDate  (the day the user physically went there)
+      //   saved but not visited → discoveredDate  (the day it first appeared in Wander)
+      // discoveredDate is stable because mergeRealPlaces now preserves it on
+      // re-fetches rather than resetting it to the current date each time.
+      const date = place.visitedDate ?? place.discoveredDate;
+      if (!date) continue;
       events.push({
         id:       `place-${place.placeId}`,
         type:     'place',
-        date:     place.discoveredDate,
+        date,
         title:    place.name,
-        subtitle: place.address,
+        subtitle: place.isVisited
+          ? 'You were here'
+          : place.address || 'Saved for later',
         refId:    place.placeId,
+      });
+    }
+
+    // Milestone events — only ones EARNED in-app (they have a seen date).
+    // Pre-seeded milestones (met before install) stay out of the story.
+    for (const id of seenMilestoneIds) {
+      const def  = MILESTONE_DEFINITIONS.find((m) => m.id === id);
+      const date = milestoneSeenDates[id];
+      if (!def || !date) continue;
+      events.push({
+        id:       `milestone-${id}`,
+        type:     'milestone',
+        date,
+        title:    def.title,
+        subtitle: 'Milestone reached',
+      });
+    }
+
+    // Anchor: the day this story started
+    if (profile?.appJoinDate) {
+      events.push({
+        id:       'joined-gati',
+        type:     'milestone',
+        date:     profile.appJoinDate,
+        title:    'You joined Gati',
+        subtitle: 'Day one of counting your life',
       });
     }
 
     // Sort newest first
     events.sort((a, b) => b.date.localeCompare(a.date));
     return events;
-  }, [unlockedStats, places]);
+  }, [unlockedStats, places, seenMilestoneIds, milestoneSeenDates, profile?.appJoinDate]);
 
   // ── Available years ──
   const availableYears = useMemo(() => {
@@ -376,14 +509,16 @@ export default function StoryScreen() {
     return [...years].sort((a, b) => b - a);
   }, [allEvents, profile]);
 
-  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [pickedYear, setPickedYear] = useState<number | null>(null);
 
-  // Keep selectedYear valid when events load
-  useEffect(() => {
-    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
-      setSelectedYear(availableYears[0]);
-    }
-  }, [availableYears]);
+  // Derived, not corrected in an effect: the picked year is only honoured if
+  // it still exists once events have loaded, otherwise we fall back to the
+  // newest available year. An effect here rendered one frame of an empty
+  // timeline first, then cascaded a second render.
+  const selectedYear = (pickedYear !== null && availableYears.includes(pickedYear))
+    ? pickedYear
+    : (availableYears[0] ?? new Date().getFullYear());
+  const setSelectedYear = setPickedYear;
 
   // ── Filter by year ──
   const filteredEvents = useMemo(
@@ -391,10 +526,23 @@ export default function StoryScreen() {
     [allEvents, selectedYear]
   );
 
+  // ── Pro gate: free users only see last 30 days ──
+  const STORY_FREE_DAYS = 30;
+  const gatedEvents = useMemo(() => {
+    if (!isFree) return filteredEvents;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - STORY_FREE_DAYS);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return filteredEvents.filter((ev) => ev.date >= cutoffStr);
+  }, [filteredEvents, isFree]);
+
+  // How many events are hidden by the gate (for the upgrade banner count)
+  const hiddenEventCount = filteredEvents.length - gatedEvents.length;
+
   // ── Group by month ──
   const monthGroups = useMemo(() => {
     const map = new Map<string, TimelineEvent[]>();
-    for (const ev of filteredEvents) {
+    for (const ev of gatedEvents) {
       const key = format(parseISO(ev.date), 'MMMM yyyy');
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ev);
@@ -464,6 +612,14 @@ export default function StoryScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.green700}
+            colors={[colors.green700]}
+          />
+        }
       >
         {monthGroups.length === 0 ? (
           <EmptyStory />
@@ -477,9 +633,66 @@ export default function StoryScreen() {
                 monthLabel={monthLabel}
                 events={events}
                 baseIndex={base}
+                annotations={annotations}
+                onNote={handleOpenNote}
               />
             );
           })
+        )}
+
+        {/* Pro gate banner — free users with older events */}
+        {isFree && hiddenEventCount > 0 && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/pro');
+            }}
+            style={styles.storyGateBanner}
+            android_ripple={{ color: colors.green50 }}
+            accessibilityRole="button"
+            accessibilityLabel={`${hiddenEventCount} older events hidden. Upgrade to Pro to see your full story.`}
+          >
+            <View style={styles.storyGateIconWrap}>
+              <Ionicons name="time-outline" size={20} color={colors.green700} />
+            </View>
+            <View style={styles.storyGateText}>
+              <Text style={styles.storyGateTitle}>
+                {hiddenEventCount} older {hiddenEventCount === 1 ? 'memory' : 'memories'} hidden
+              </Text>
+              <Text style={styles.storyGateSub}>
+                Upgrade to Pro to see your full timeline
+              </Text>
+            </View>
+            <View style={styles.storyGateCta}>
+              <Text style={styles.storyGateCtaText}>Upgrade</Text>
+              <Ionicons name="chevron-forward" size={12} color={colors.green700} />
+            </View>
+          </Pressable>
+        )}
+
+        {/* Pro gate banner — free users viewing a year with no visible events */}
+        {isFree && monthGroups.length === 0 && filteredEvents.length > 0 && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/pro');
+            }}
+            style={styles.storyGateBanner}
+            android_ripple={{ color: colors.green50 }}
+            accessibilityRole="button"
+          >
+            <View style={styles.storyGateIconWrap}>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.green700} />
+            </View>
+            <View style={styles.storyGateText}>
+              <Text style={styles.storyGateTitle}>This year is locked</Text>
+              <Text style={styles.storyGateSub}>Upgrade to Pro to unlock older years</Text>
+            </View>
+            <View style={styles.storyGateCta}>
+              <Text style={styles.storyGateCtaText}>Upgrade</Text>
+              <Ionicons name="chevron-forward" size={12} color={colors.green700} />
+            </View>
+          </Pressable>
         )}
 
         {/* Legend */}
@@ -500,6 +713,16 @@ export default function StoryScreen() {
 
         <View style={{ height: spacing[10] }} />
       </ScrollView>
+
+      {/* ── Note bottom sheet ── */}
+      <NoteBottomSheet
+        itemId={noteTarget?.id ?? null}
+        eventTitle={noteTarget?.title ?? ''}
+        existing={noteTarget ? annotations[noteTarget.id] : undefined}
+        onSave={handleSaveNote}
+        onDelete={handleDeleteNote}
+        onDismiss={() => setNoteTarget(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -518,14 +741,14 @@ const styles = StyleSheet.create({
   },
   screenTitle: {
     fontFamily:    fontFamily.bold,
-    fontSize:      26,
+    fontSize:      24.5,
     color:         colors.textPrimary,
     letterSpacing: -0.4,
     marginBottom:  3,
   },
   screenSub: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
 
@@ -548,13 +771,13 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.green700,
     letterSpacing: -0.3,
   },
   summaryLabel: {
     fontFamily: fontFamily.regular,
-    fontSize:   11,
+    fontSize:   10.5,
     color:      colors.textMuted,
     textAlign:  'center',
   },
@@ -585,7 +808,7 @@ const styles = StyleSheet.create({
   },
   yearPillText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
   yearPillTextActive: {
@@ -605,7 +828,7 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     fontFamily:    fontFamily.bold,
-    fontSize:      14,
+    fontSize:      13,
     color:         colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -624,10 +847,12 @@ const styles = StyleSheet.create({
     paddingTop: 18,
   },
   dot: {
-    width:        10,
-    height:       10,
-    borderRadius: radius.full,
-    flexShrink:   0,
+    width:          10,
+    height:         10,
+    borderRadius:   radius.full,
+    flexShrink:     0,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
   rail: {
     flex:            1,
@@ -665,20 +890,59 @@ const styles = StyleSheet.create({
   },
   entryTitle: {
     fontFamily:    fontFamily.semiBold,
-    fontSize:      13,
+    fontSize:      12,
     color:         colors.textPrimary,
     letterSpacing: -0.1,
   },
   entrySubtitle: {
     fontFamily: fontFamily.regular,
-    fontSize:   11,
+    fontSize:   10.5,
     color:      colors.textMuted,
   },
   entryDate: {
     fontFamily:  fontFamily.medium,
-    fontSize:    11,
+    fontSize:    10.5,
     color:       colors.textMuted,
     flexShrink:  0,
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing[1],
+  },
+  entryCardPinned: {
+    borderColor:  colors.gold + '55',
+    borderWidth:  1.5,
+  },
+
+  // Note block — appears below the card
+  noteBlock: {
+    flexDirection:  'row',
+    alignItems:     'flex-start',
+    gap:            spacing[2],
+    marginTop:      spacing[1] + 1,
+    marginLeft:     spacing[1],
+    paddingVertical:   spacing[2],
+    paddingHorizontal: spacing[3],
+    backgroundColor:   colors.surface2,
+    borderRadius:      radius.lg,
+    borderWidth:       1,
+    borderColor:       colors.borderLight,
+  },
+  noteAccent: {
+    width:           3,
+    alignSelf:       'stretch',
+    borderRadius:    2,
+    backgroundColor: colors.green300,
+    flexShrink:      0,
+  },
+  noteText: {
+    flex:       1,
+    fontFamily: fontFamily.regular,
+    fontSize:   11.5,
+    color:      colors.textSecondary,
+    lineHeight: 17,
+    fontStyle:  'italic',
   },
 
   // Legend
@@ -702,8 +966,56 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
+  },
+
+  // Story gate banner (free tier — older events locked)
+  storyGateBanner: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             spacing[3],
+    backgroundColor: colors.green50,
+    borderRadius:    radius.xl,
+    borderWidth:     1,
+    borderColor:     colors.green100,
+    padding:         spacing[4],
+    marginBottom:    spacing[5],
+  },
+  storyGateIconWrap: {
+    width:           40,
+    height:          40,
+    borderRadius:    radius.md,
+    backgroundColor: colors.white,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderWidth:     1,
+    borderColor:     colors.green100,
+    flexShrink:      0,
+  },
+  storyGateText: {
+    flex: 1,
+    gap:  2,
+  },
+  storyGateTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   13,
+    color:      colors.green700,
+  },
+  storyGateSub: {
+    fontFamily: fontFamily.regular,
+    fontSize:   11.5,
+    color:      colors.textSecondary,
+  },
+  storyGateCta: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           2,
+  },
+  storyGateCtaText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   12,
+    color:      colors.green700,
   },
 
   // Empty state
@@ -727,15 +1039,30 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily:   fontFamily.bold,
-    fontSize:     18,
+    fontSize:     17,
     color:        colors.textPrimary,
     marginBottom: spacing[2],
   },
   emptyBody: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
     textAlign:  'center',
-    lineHeight: 21,
+    lineHeight: 19.5,
+  },
+  emptyCtaBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing[2],
+    marginTop:         spacing[5],
+    backgroundColor:   colors.green700,
+    paddingVertical:   spacing[3],
+    paddingHorizontal: spacing[5],
+    borderRadius:      radius.full,
+  },
+  emptyCtaBtnText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   13,
+    color:      colors.white,
   },
 });

@@ -9,7 +9,7 @@
  *  dayNumber  — profile.daysAlive (optional) shown as "Day X,XXX"
  */
 import React, { forwardRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatStatCompact } from '@/engine/statsEngine';
 import type { StatDef } from '@/data/statDefinitions';
@@ -22,7 +22,7 @@ interface StatShareCardProps {
 }
 
 export const StatShareCard = forwardRef<View, StatShareCardProps>(
-  ({ definition, value, dayNumber }, ref) => {
+  function StatShareCard({ definition, value, dayNumber }, ref) {
     if (!definition) return null;
 
     const displayValue   = formatStatCompact(value);
@@ -42,10 +42,14 @@ export const StatShareCard = forwardRef<View, StatShareCardProps>(
             ))}
           </View>
 
-          {/* ── Top row: G logo + app name ── */}
+          {/* ── Top row: logo + app name ── */}
           <View style={styles.topRow}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoG}>G</Text>
+            <View style={styles.logoWrap}>
+              <Image
+                source={require('../../../assets/logo.png')}
+                style={styles.logoImage}
+                resizeMode="cover"
+              />
             </View>
             <Text style={styles.appName}>Gati</Text>
           </View>
@@ -76,7 +80,7 @@ export const StatShareCard = forwardRef<View, StatShareCardProps>(
           {/* ── Spacer ── */}
           <View style={{ flex: 1 }} />
 
-          {/* ── Bottom: Day counter + tagline ── */}
+          {/* ── Bottom: Day counter + viral CTA ── */}
           <View style={styles.bottomSection}>
             {dayLabel && (
               <View style={styles.dayBadge}>
@@ -84,9 +88,12 @@ export const StatShareCard = forwardRef<View, StatShareCardProps>(
                 <Text style={styles.dayBadgeText}>{dayLabel}</Text>
               </View>
             )}
-            <View style={styles.taglineRow}>
+            <View style={styles.ctaRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.tagline}>My life, in numbers</Text>
+              <View style={styles.ctaBlock}>
+                <Text style={styles.ctaQuestion}>Find yours</Text>
+                <Text style={styles.ctaApp}>Download Gati</Text>
+              </View>
             </View>
           </View>
 
@@ -141,23 +148,19 @@ const styles = StyleSheet.create({
     gap:           spacing[2],
     marginBottom:  spacing[5],
   },
-  logoCircle: {
-    width:           28,
-    height:          28,
-    borderRadius:    14,
-    backgroundColor: 'rgba(255,255,255,0.20)',
-    alignItems:      'center',
-    justifyContent:  'center',
+  logoWrap: {
+    width:        28,
+    height:       28,
+    borderRadius: 7,
+    overflow:     'hidden',   // clips borderRadius on Android
   },
-  logoG: {
-    fontFamily: fontFamily.extraBold,
-    fontSize:   14,
-    color:      colors.white,
-    lineHeight: 16,
+  logoImage: {
+    width:  28,
+    height: 28,
   },
   appName: {
     fontFamily: fontFamily.bold,
-    fontSize:   14,
+    fontSize:   13,
     color:      'rgba(255,255,255,0.70)',
   },
 
@@ -175,30 +178,30 @@ const styles = StyleSheet.create({
   },
   categoryLabel: {
     fontFamily: fontFamily.medium,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      'rgba(255,255,255,0.75)',
   },
 
   // Value
   bigValue: {
     fontFamily:    fontFamily.extraBold,
-    fontSize:      64,
+    fontSize:      60,
     color:         colors.white,
     letterSpacing: -2.5,
-    lineHeight:    70,
+    lineHeight:    66,
   },
   unit: {
     fontFamily:   fontFamily.medium,
-    fontSize:     15,
+    fontSize:     14,
     color:        'rgba(255,255,255,0.60)',
     marginTop:    spacing[1],
     marginBottom: spacing[3],
   },
   statName: {
     fontFamily:  fontFamily.semiBold,
-    fontSize:    20,
+    fontSize:    19,
     color:       'rgba(255,255,255,0.92)',
-    lineHeight:  27,
+    lineHeight:  25.5,
   },
 
   // Bottom
@@ -219,10 +222,10 @@ const styles = StyleSheet.create({
   },
   dayBadgeText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      'rgba(255,255,255,0.70)',
   },
-  taglineRow: {
+  ctaRow: {
     flexDirection: 'row',
     alignItems:    'center',
     gap:           spacing[3],
@@ -232,9 +235,19 @@ const styles = StyleSheet.create({
     height:          1,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
-  tagline: {
-    fontFamily: fontFamily.regular,
-    fontSize:   12,
-    color:      'rgba(255,255,255,0.45)',
+  ctaBlock: {
+    alignItems: 'flex-end',
+    gap:         1,
+  },
+  ctaQuestion: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   11.5,
+    color:      'rgba(255,255,255,0.80)',
+  },
+  ctaApp: {
+    fontFamily:    fontFamily.medium,
+    fontSize:      9.5,
+    color:         'rgba(255,255,255,0.55)',
+    letterSpacing: 0.3,
   },
 });

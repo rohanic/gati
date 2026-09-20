@@ -2,7 +2,6 @@
  * A single row in the "Your story so far" timeline on the Today screen.
  * Staggered spring entrance: slides in from left with opacity.
  * Left-rail: dot + connecting line.
- * Animated row icon (same pulse as CategoryIcon, but smaller).
  */
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -12,43 +11,16 @@ import Animated, {
   withSpring,
   withDelay,
   withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { formatStatCompact } from '@/engine/statsEngine';
 import type { StatDef } from '@/data/statDefinitions';
-import { colors, spacing, radius, fontFamily } from '@/theme';
+import { colors, spacing, radius, fontFamily, getCategoryTheme } from '@/theme';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  time:   '#6B7FD7',
-  body:   '#D96B6B',
-  habits: colors.green500,
-  social: '#E8A020',
-  money:  colors.gold,
-};
-
-// ─── Animated stat icon ───────────────────────────────────────
+// ─── Stat icon (static) ───────────────────────────────────────
 function RowIcon({ icon, color }: { icon: string; color: string }) {
-  const scale = useSharedValue(1);
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, { duration: 2200, easing: Easing.bezier(0.37, 0, 0.63, 1) }),
-        withTiming(1.00, { duration: 2200, easing: Easing.bezier(0.37, 0, 0.63, 1) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return (
-    <Animated.View style={style}>
-      <Ionicons name={icon as any} size={16} color={color} />
-    </Animated.View>
-  );
+  return <Ionicons name={icon as any} size={16} color={color} />;
 }
 
 // ─── Row component ────────────────────────────────────────────
@@ -67,7 +39,7 @@ export function TimelineRow({
   index,
   isLast,
 }: TimelineRowProps) {
-  const color   = CATEGORY_COLORS[definition.category] ?? colors.green500;
+  const color   = getCategoryTheme(definition.category).accent;
   const opacity = useSharedValue(0);
   const transX  = useSharedValue(-20);
 
@@ -167,18 +139,18 @@ const styles = StyleSheet.create({
   cardText: { flex: 1 },
   statTitle: {
     fontFamily:   fontFamily.semiBold,
-    fontSize:     14,
+    fontSize:     13,
     color:        colors.textPrimary,
     marginBottom: 2,
   },
   dateLabel: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
   },
   statValue: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     letterSpacing: -0.3,
   },
 });

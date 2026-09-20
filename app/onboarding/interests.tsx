@@ -74,14 +74,24 @@ function InterestChip({
           size={20}
           color={selected ? colors.green700 : colors.textMuted}
         />
-        <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+        <Text
+          style={[styles.chipLabel, selected && styles.chipLabelSelected]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+        >
           {item.label}
         </Text>
-        {selected ? (
-          <View style={styles.checkmark}>
-            <Ionicons name="checkmark" size={12} color={colors.white} />
-          </View>
-        ) : null}
+
+        {/* Fixed-width slot — always reserves space so label width never shifts.
+            Circle is visible only when selected; slot is invisible otherwise. */}
+        <View style={styles.checkSlot}>
+          {selected && (
+            <View style={styles.checkmark}>
+              <Ionicons name="checkmark" size={10} color={colors.white} />
+            </View>
+          )}
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -120,12 +130,12 @@ export default function InterestsScreen() {
   };
 
   return (
-    <OnboardingShell step={4}>
+    <OnboardingShell step={12}>
       <View style={styles.content}>
         {/* Header */}
         <Animated.View style={[styles.header, headStyle]}>
           <Text style={styles.question}>What do you{'\n'}love exploring?</Text>
-          <Text style={styles.hint}>Choose at least one — shapes your Wander picks</Text>
+          <Text style={styles.hint}>Choose at least one to shape your Wander picks</Text>
         </Animated.View>
 
         {/* Grid */}
@@ -182,15 +192,15 @@ const styles = StyleSheet.create({
   },
   question: {
     fontFamily:    fontFamily.bold,
-    fontSize:      30,
+    fontSize:      28,
     color:         colors.textPrimary,
-    lineHeight:    38,
+    lineHeight:    35.5,
     marginBottom:  spacing[3],
     letterSpacing: -0.5,
   },
   hint: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 
@@ -203,18 +213,18 @@ const styles = StyleSheet.create({
   },
   chipWrap: {
     width: '47%',
+    // Relative positioning so the absolute checkmark badge anchors here
   },
   chip: {
     flexDirection:     'row',
     alignItems:        'center',
     paddingVertical:   spacing[4],
-    paddingHorizontal: spacing[4],
+    paddingHorizontal: spacing[3] + 2,
     borderRadius:      radius.xl,
     borderWidth:       1.5,
     borderColor:       colors.border,
     backgroundColor:   colors.white,
     gap:               spacing[2],
-    position:          'relative',
   },
   chipSelected: {
     borderColor:     colors.green700,
@@ -222,17 +232,26 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   15,
+    fontSize:   14,
     color:      colors.textSecondary,
     flex:       1,
   },
   chipLabelSelected: {
     color: colors.green700,
   },
+  // Slot always rendered in the row — keeps label width stable.
+  checkSlot: {
+    width:          18,
+    height:         18,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  // The visible green circle + tick, shown only when selected.
+  // In-flow inside the chip row so it's vertically centred automatically.
   checkmark: {
-    width:           20,
-    height:          20,
-    borderRadius:    radius.full,
+    width:           18,
+    height:          18,
+    borderRadius:    9,
     backgroundColor: colors.green700,
     alignItems:      'center',
     justifyContent:  'center',
@@ -240,7 +259,7 @@ const styles = StyleSheet.create({
 
   counter: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textMuted,
     textAlign:  'center',
     marginBottom: spacing[4],
@@ -262,7 +281,7 @@ const styles = StyleSheet.create({
   },
   nextText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.white,
     letterSpacing: 0.2,
   },

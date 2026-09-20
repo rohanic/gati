@@ -8,7 +8,6 @@ import Animated, {
   withSpring,
   withDelay,
   withTiming,
-  withRepeat,
   withSequence,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -83,14 +82,19 @@ const PARTICLES = Array.from({ length: 16 }, (_, i) => ({
 
 // ─── Screen ───────────────────────────────────────────────────
 export default function CompleteScreen() {
-  const { firstName, reset: resetOnboarding } = useOnboardingStore();
-  const { setOnboardingDone } = useUserStore();
+  const { firstName, dateOfBirth, reset: resetOnboarding } = useOnboardingStore();
+  const setOnboardingDone = useUserStore((s) => s.setOnboardingDone);
+  const startTrial        = useUserStore((s) => s.startTrial);
+
+  // Personalized congrats — a real figure, not generic praise
+  const daysAlive = Math.max(
+    1,
+    Math.floor((Date.now() - (dateOfBirth ?? new Date(2000, 0, 1)).getTime()) / 86_400_000)
+  );
 
   // ── Animations ──
   const checkScale   = useSharedValue(0.4);
   const checkOpacity = useSharedValue(0);
-  const ringScale    = useSharedValue(0.6);
-  const ringOpacity  = useSharedValue(0);
   const titleOp      = useSharedValue(0);
   const titleY       = useSharedValue(20);
   const subOp        = useSharedValue(0);
@@ -104,16 +108,6 @@ export default function CompleteScreen() {
 
     checkScale.value   = withSpring(1, { stiffness: 300, damping: 25 });
     checkOpacity.value = withTiming(1, { duration: 350 });
-
-    ringOpacity.value = withDelay(100, withTiming(1, { duration: 300 }));
-    ringScale.value   = withDelay(100, withRepeat(
-      withSequence(
-        withTiming(1.35, { duration: 1800 }),
-        withTiming(0.95, { duration: 1800 })
-      ),
-      -1,
-      true
-    ));
 
     titleOp.value = withDelay(300, withTiming(1, { duration: 380 }));
     titleY.value  = withDelay(300, withSpring(0, { stiffness: 180, damping: 18 }));
@@ -130,10 +124,6 @@ export default function CompleteScreen() {
   const checkStyle    = useAnimatedStyle(() => ({
     opacity:   checkOpacity.value,
     transform: [{ scale: checkScale.value }],
-  }));
-  const ringStyle     = useAnimatedStyle(() => ({
-    opacity:   ringOpacity.value,
-    transform: [{ scale: ringScale.value }],
   }));
   const titleStyle    = useAnimatedStyle(() => ({
     opacity:   titleOp.value,
@@ -158,6 +148,16 @@ export default function CompleteScreen() {
   };
 
   const launch = () => {
+    // Start the 7-day trial here rather than at first sign-in.
+    //
+    // Previously the trial only began inside `_onSignIn`, so anyone who never
+    // created an account never got one — they hit a hard paywall on day two
+    // with every stat they had "earned" locked behind Pro. Starting it at
+    // onboarding means every new user gets the full experience for a week.
+    //
+    // `startTrial` is anchored to the device, so this cannot be replayed by
+    // reinstalling-and-signing-up repeatedly.
+    startTrial();
     resetOnboarding();
     setOnboardingDone();
     router.replace('/(tabs)/today');
@@ -174,7 +174,6 @@ export default function CompleteScreen() {
 
       {/* ── Check circle ── */}
       <View style={styles.checkCluster}>
-        <Animated.View style={[styles.checkRing, ringStyle]} />
         <Animated.View style={[styles.checkCircle, checkStyle]}>
           <Ionicons name="checkmark" size={38} color={colors.white} />
         </Animated.View>
@@ -187,7 +186,9 @@ export default function CompleteScreen() {
       </Animated.View>
 
       <Animated.Text style={[styles.subtitle, subStyle]}>
-        Your first life stat unlocks today.{'\n'}Check back each day for a new one.
+        Congratulations! You're {daysAlive.toLocaleString('en-US')} days into your life,
+        and today is the first one Gati gets to count.{'\n'}
+        Your first 3 numbers are ready. A new one unlocks every midnight.
       </Animated.Text>
 
       {/* ── Location card ── */}
@@ -224,7 +225,6 @@ export default function CompleteScreen() {
 }
 
 const CHECK_SIZE = 88;
-const RING_SIZE  = CHECK_SIZE * 2;
 
 const styles = StyleSheet.create({
   safe: {
@@ -253,15 +253,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom:   spacing[8],
   },
-  checkRing: {
-    position:        'absolute',
-    width:           RING_SIZE,
-    height:          RING_SIZE,
-    borderRadius:    RING_SIZE / 2,
-    borderWidth:     1.5,
-    borderColor:     colors.green300,
-    backgroundColor: colors.green50,
-  },
   checkCircle: {
     width:           CHECK_SIZE,
     height:          CHECK_SIZE,
@@ -283,24 +274,24 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontFamily:    fontFamily.regular,
-    fontSize:      22,
+    fontSize:      20.5,
     color:         colors.textSecondary,
     textAlign:     'center',
     letterSpacing: -0.2,
   },
   nameText: {
     fontFamily:    fontFamily.extraBold,
-    fontSize:      30,
+    fontSize:      28,
     color:         colors.textPrimary,
     textAlign:     'center',
     letterSpacing: -0.5,
   },
   subtitle: {
     fontFamily:   fontFamily.regular,
-    fontSize:     15,
+    fontSize:     14,
     color:        colors.textSecondary,
     textAlign:    'center',
-    lineHeight:   22,
+    lineHeight:   20.5,
     marginBottom: spacing[7],
   },
 
@@ -330,13 +321,13 @@ const styles = StyleSheet.create({
   locationText: { flex: 1 },
   locationTitle: {
     fontFamily:   fontFamily.semiBold,
-    fontSize:     15,
+    fontSize:     14,
     color:        colors.textPrimary,
     marginBottom: 2,
   },
   locationSub: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
 
@@ -362,7 +353,7 @@ const styles = StyleSheet.create({
   },
   primaryText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.white,
     letterSpacing: 0.2,
   },
@@ -372,7 +363,7 @@ const styles = StyleSheet.create({
   },
   ghostText: {
     fontFamily: fontFamily.medium,
-    fontSize:   15,
+    fontSize:   14,
     color:      colors.textMuted,
   },
 });

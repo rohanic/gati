@@ -4,13 +4,25 @@
  * Pure functions — no side effects.
  */
 import { differenceInDays, differenceInHours, differenceInWeeks } from 'date-fns';
-import type { UserProfile, ExerciseFrequency } from '@/types';
+import type { UserProfile, ExerciseFrequency, TalkLevel } from '@/types';
 
 // ─── Exercise multiplier ───────────────────────────────────────
 const EXERCISE_FACTOR: Record<ExerciseFrequency, number> = {
   regular:   1.30,
   sometimes: 1.00,
   rarely:    0.65,
+};
+
+// ─── Talk level: words per day + laughs per day ───────────────
+const TALK_WORDS: Record<TalkLevel, number> = {
+  quiet:    8_000,
+  balanced: 16_000,
+  chatty:   25_000,
+};
+const TALK_LAUGHS: Record<TalkLevel, number> = {
+  quiet:    10,
+  balanced: 17,
+  chatty:   26,
 };
 
 // ─── Output shape ─────────────────────────────────────────────
@@ -21,8 +33,8 @@ export interface LifeStatsOutput {
   ageInYears:    number;   // e.g. 26.4
   ageInMonths:   number;
   ageInWeeks:    number;
-  mondaysFaced:  number;
-  weekendsLived: number;
+  seasonsLived:  number;   // daysAlive / 91.3  (replaces mondaysFaced)
+  fullMoons:     number;   // daysAlive / 29.53 (replaces weekendsLived)
   percentOf80:   number;   // 0–100, one decimal
 
   // Body
@@ -40,6 +52,16 @@ export interface LifeStatsOutput {
   mealsEaten:    number;
   phoneHours:    number;
   phoneDays:     number;
+  musicHours:    number;
+  musicDays:     number;
+
+  // Body (hydration)
+  waterGlasses:  number;
+  waterLitres:   number;
+
+  // Time (commute)
+  commuteHours:  number;
+  commuteDays:   number;
 
   // Social
   laughsLaughed: number;
@@ -51,14 +73,24 @@ export function computeLifeStats(profile: UserProfile): LifeStatsOutput {
   const birth = new Date(profile.dateOfBirth + 'T00:00:00');
   const now   = new Date();
 
-  const daysAlive   = Math.max(1, differenceInDays(now, birth));
-  const hoursAlive  = Math.max(24, differenceInHours(now, birth));
-  const ageInYears  = daysAlive / 365.25;
-  const exFactor    = EXERCISE_FACTOR[profile.exerciseFrequency] ?? 1.0;
+  const daysAlive    = Math.max(1, differenceInDays(now, birth));
+  const hoursAlive   = Math.max(24, differenceInHours(now, birth));
+  const ageInYears   = daysAlive / 365.25;
+  const exFactor     = EXERCISE_FACTOR[profile.exerciseFrequency] ?? 1.0;
+  // Sub-day precision for live-ticking stats (heartbeats, breaths, blinks)
+  const minutesAlive = Math.max(1440, (now.getTime() - birth.getTime()) / 60_000);
 
-  const heartbeats  = Math.floor(daysAlive * 100_800);  // 70 bpm × 1440 min/day
-  const breaths     = Math.floor(daysAlive * 23_040);   // 16/min × 1440
-  const blinks      = Math.floor(daysAlive * 14_400);   // 10/min × 1440
+  // New profile fields — backward-compat defaults
+  const mealsPerDay    = profile.mealsPerDay          ?? 3;
+  const talkLevel      = profile.talkLevel            ?? 'balanced';
+  const waterPerDay    = profile.waterGlassesPerDay   ?? 6;
+  const musicPerDay    = profile.musicHoursPerDay     ?? 2;
+  const commutePerDay  = profile.commuteMinutesPerDay ?? 30;
+
+  // Use minutesAlive so the numbers tick every minute (not once per day)
+  const heartbeats  = Math.floor(minutesAlive * 70);    // 70 bpm
+  const breaths     = Math.floor(minutesAlive * 16);    // 16 brpm
+  const blinks      = Math.floor(minutesAlive * 10);    // ~10/min
   const sleepHours  = Math.floor(daysAlive * profile.sleepHoursPerNight);
   const phoneHours  = Math.floor(daysAlive * profile.phoneHoursPerDay);
   const coffeeCups  = Math.floor(daysAlive * profile.coffeeCupsPerDay);
@@ -70,8 +102,8 @@ export function computeLifeStats(profile: UserProfile): LifeStatsOutput {
     ageInYears:     Math.floor(ageInYears * 10) / 10,
     ageInMonths:    Math.floor(ageInYears * 12),
     ageInWeeks:     differenceInWeeks(now, birth),
-    mondaysFaced:   Math.floor(daysAlive / 7),
-    weekendsLived:  Math.floor(daysAlive / 7),
+    seasonsLived:   Math.floor(daysAlive / 91.3125),  // 365.25 / 4
+    fullMoons:      Math.floor(daysAlive / 29.53059), // synodic month
     percentOf80:    Math.min(100, Math.round((ageInYears / 80) * 1_000) / 10),
 
     heartbeats,
@@ -84,12 +116,21 @@ export function computeLifeStats(profile: UserProfile): LifeStatsOutput {
 
     coffeeCups,
     coffeeVolumeMl: Math.floor(coffeeCups * 240),   // ~240mL per cup
-    mealsEaten:     Math.floor(daysAlive * 3),
+    mealsEaten:     Math.floor(daysAlive * mealsPerDay),
     phoneHours,
     phoneDays:      Math.floor(phoneHours / 24),
+    // Honest baselines: music listening from ~age 10, commuting from ~age 18
+    musicHours:     Math.floor(Math.max(0, daysAlive - 10 * 365.25) * musicPerDay),
+    musicDays:      Math.floor((Math.max(0, daysAlive - 10 * 365.25) * musicPerDay) / 24),
 
-    laughsLaughed:  Math.floor(daysAlive * 17),     // ~17 laughs/day avg
-    wordsSpoken:    Math.floor(daysAlive * 16_000),  // ~16k words/day avg
+    waterGlasses:   Math.floor(daysAlive * waterPerDay),
+    waterLitres:    Math.floor(daysAlive * waterPerDay * 0.25),   // ~250mL per glass
+
+    commuteHours:   Math.floor((Math.max(0, daysAlive - 18 * 365.25) * commutePerDay) / 60),
+    commuteDays:    Math.floor((Math.max(0, daysAlive - 18 * 365.25) * commutePerDay) / 60 / 24),
+
+    laughsLaughed:  Math.floor(daysAlive * TALK_LAUGHS[talkLevel]),
+    wordsSpoken:    Math.floor(daysAlive * TALK_WORDS[talkLevel]),
   };
 }
 

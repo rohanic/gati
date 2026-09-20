@@ -130,15 +130,15 @@ const styles = StyleSheet.create({
   },
   question: {
     fontFamily:   fontFamily.bold,
-    fontSize:     32,
+    fontSize:     30,
     color:        colors.textPrimary,
-    lineHeight:   40,
+    lineHeight:   37.5,
     marginBottom: spacing[3],
     letterSpacing: -0.5,
   },
   hint: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   input: {
     fontFamily:  fontFamily.semiBold,
-    fontSize:    28,
+    fontSize:    26.5,
     color:       colors.textPrimary,
     paddingVertical: spacing[3],
     paddingHorizontal: 0,
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   nextText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.white,
     letterSpacing: 0.2,
   },

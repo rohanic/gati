@@ -14,17 +14,17 @@ export const fontFamily = {
 } as const;
 
 export const fontSize = {
-  xs:   11,
-  sm:   13,
-  base: 15,
-  md:   17,
-  lg:   20,
-  xl:   24,
-  '2xl': 28,
-  '3xl': 36,
-  '4xl': 48,
-  '5xl': 64,
-  '6xl': 80,
+  xs:   10.5,
+  sm:   12,
+  base: 14,
+  md:   16,
+  lg:   19,
+  xl:   22.5,
+  '2xl': 26,
+  '3xl': 34,
+  '4xl': 45,
+  '5xl': 60,
+  '6xl': 75,
 } as const;
 
 // Pre-built, composable text styles — use as StyleSheet spreads

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
@@ -7,21 +7,22 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  withRepeat,
-  withSequence,
   withDelay,
-  interpolateColor,
-  Extrapolation,
-  interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { differenceInDays } from 'date-fns';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { useUserStore } from '@/store/userStore';
+import { useUserStore, useStatsStore } from '@/store/userStore';
+import { computeLifeStats } from '@/engine/statsEngine';
+import { checkMilestones } from '@/engine/milestoneEngine';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { format } from 'date-fns';
 
-// ─── Life stat computation ─────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────
+const LOGO_SIZE = 64;
+
+// ─── Life stat computation ────────────────────────────────────
 const EXERCISE_FACTOR: Record<string, number> = {
   regular:   1.35,
   sometimes: 1.0,
@@ -29,72 +30,43 @@ const EXERCISE_FACTOR: Record<string, number> = {
 };
 
 function computeStats(
-  birthDate:   Date,
-  sleepHours:  number,
-  coffeeCups:  number,
-  phoneHours:  number,
-  exercise:    string
+  birthDate:    Date,
+  sleepHours:   number,
+  coffeeCups:   number,
+  phoneHours:   number,
+  exercise:     string,
+  waterGlasses: number,
+  musicHours:   number
 ) {
   const now       = new Date();
   const days      = Math.max(1, differenceInDays(now, birthDate));
   const exFactor  = EXERCISE_FACTOR[exercise] ?? 1.0;
+  const musicDays = Math.max(0, days - 10 * 365.25);
 
   return [
-    {
-      icon:  'calendar-outline',
-      label: 'Days alive',
-      value: days,
-      suffix: 'days',
-      color:  colors.green700,
-    },
-    {
-      icon:  'heart-outline',
-      label: 'Heartbeats',
-      value: Math.floor(days * 100800),   // 70 bpm × 1440 min/day
-      suffix: 'beats',
-      color:  '#E05A5A',
-    },
-    {
-      icon:  'moon-outline',
-      label: 'Hours of sleep',
-      value: Math.floor(days * sleepHours),
-      suffix: 'hours',
-      color:  '#6B7FD7',
-    },
-    {
-      icon:  'walk-outline',
-      label: 'Steps walked',
-      value: Math.floor(days * 8000 * exFactor),
-      suffix: 'steps',
-      color:  colors.green500,
-    },
+    { icon: 'calendar-outline',       label: 'Days alive',       value: days,                                suffix: 'days',   color: colors.green700  },
+    { icon: 'heart-outline',           label: 'Heartbeats',       value: Math.floor(days * 100800),           suffix: 'beats',  color: '#E05A5A'        },
+    { icon: 'moon-outline',            label: 'Hours of sleep',   value: Math.floor(days * sleepHours),       suffix: 'hours',  color: '#6B7FD7'        },
+    { icon: 'walk-outline',            label: 'Steps walked',     value: Math.floor(days * 8000 * exFactor),  suffix: 'steps',  color: colors.green500  },
     ...(coffeeCups > 0
-      ? [{
-          icon:  'cafe-outline',
-          label: 'Coffee sips',
-          value: Math.floor(days * coffeeCups * 8), // ~8 sips per cup
-          suffix: 'sips',
-          color:  '#9C6B3C',
-        }]
+      ? [{ icon: 'cafe-outline',       label: 'Coffee sips',      value: Math.floor(days * coffeeCups * 8),   suffix: 'sips',   color: '#9C6B3C' }]
       : []),
-    {
-      icon:  'phone-portrait-outline',
-      label: 'Phone hours',
-      value: Math.floor(days * phoneHours),
-      suffix: 'hours',
-      color:  colors.textSecondary,
-    },
+    { icon: 'water-outline',           label: 'Glasses of water', value: Math.floor(days * waterGlasses),     suffix: 'glasses', color: '#4A90C2'      },
+    ...(musicHours > 0
+      ? [{ icon: 'musical-notes-outline', label: 'Songs heard',   value: Math.floor(musicDays * musicHours * 17), suffix: 'songs', color: '#8B5FCB' }]
+      : []),
+    { icon: 'phone-portrait-outline',  label: 'Phone hours',      value: Math.floor(days * phoneHours),       suffix: 'hours',  color: colors.textSecondary },
   ];
 }
 
-// ─── Format large numbers ──────────────────────────────────────
+// ─── Format large numbers ─────────────────────────────────────
 function formatNum(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
   if (n >= 1_000_000)     return (n / 1_000_000).toFixed(1) + 'M';
   return n.toLocaleString();
 }
 
-// ─── Count-up hook ─────────────────────────────────────────────
+// ─── Count-up hook ────────────────────────────────────────────
 function useCountUp(target: number, duration: number, active: boolean): number {
   const [display, setDisplay] = useState(0);
   const started = useRef(false);
@@ -107,7 +79,7 @@ function useCountUp(target: number, duration: number, active: boolean): number {
     const tick = setInterval(() => {
       const elapsed  = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const eased    = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+      const eased    = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(target * eased));
       if (progress >= 1) {
         clearInterval(tick);
@@ -123,42 +95,36 @@ function useCountUp(target: number, duration: number, active: boolean): number {
 
 // ─── Stat row ─────────────────────────────────────────────────
 function StatRow({
-  icon,
-  label,
-  value,
-  suffix,
-  color,
-  active,
-  delay,
+  icon, label, value, suffix, color, active,
 }: {
-  icon:    string;
-  label:   string;
-  value:   number;
-  suffix:  string;
-  color:   string;
-  active:  boolean;
-  delay:   number;
+  icon:   string;
+  label:  string;
+  value:  number;
+  suffix: string;
+  color:  string;
+  active: boolean;
+  delay:  number;
 }) {
-  const opacity  = useSharedValue(0);
-  const translateX = useSharedValue(-16);
+  const opacity    = useSharedValue(0);
+  const translateY = useSharedValue(10);
 
   useEffect(() => {
     if (!active) return;
-    opacity.value    = withDelay(60, withTiming(1, { duration: 300 }));
-    translateX.value = withDelay(60, withSpring(0, { stiffness: 220, damping: 22 }));
+    opacity.value    = withTiming(1, { duration: 280 });
+    translateY.value = withSpring(0, { stiffness: 260, damping: 24 });
   }, [active]);
 
   const rowStyle = useAnimatedStyle(() => ({
     opacity:   opacity.value,
-    transform: [{ translateX: translateX.value }],
+    transform: [{ translateY: translateY.value }],
   }));
 
-  const displayValue = useCountUp(value, 700, active);
+  const displayValue = useCountUp(value, 650, active);
 
   return (
     <Animated.View style={[styles.statRow, rowStyle]}>
       <View style={[styles.statIcon, { backgroundColor: color + '18' }]}>
-        <Ionicons name={icon as any} size={18} color={color} />
+        <Ionicons name={icon as any} size={17} color={color} />
       </View>
       <Text style={styles.statLabel}>{label}</Text>
       <View style={styles.statValueWrap}>
@@ -169,59 +135,11 @@ function StatRow({
   );
 }
 
-// ─── Pulsing ring ─────────────────────────────────────────────
-function PulsingRing({ size, color, delay }: { size: number; color: string; delay: number }) {
-  const scale   = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(0.6, { duration: 400 }));
-    scale.value   = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(1.4, { duration: 2000 }),
-          withTiming(0.9, { duration: 2000 })
-        ),
-        -1,
-        true
-      )
-    );
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.ring,
-        style,
-        {
-          width:        size,
-          height:       size,
-          borderRadius: size / 2,
-          borderColor:  color,
-        },
-      ]}
-    />
-  );
-}
-
 // ─── Progress bar ─────────────────────────────────────────────
 function AnimatedProgress({ value }: { value: number }) {
   const width = useSharedValue(0);
-
-  useEffect(() => {
-    width.value = withTiming(value, { duration: 600 });
-  }, [value]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${width.value}%`,
-  }));
-
+  useEffect(() => { width.value = withTiming(value, { duration: 600 }); }, [value]);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${width.value}%` as any }));
   return (
     <View style={styles.progressTrack}>
       <Animated.View style={[styles.progressFill, fillStyle]} />
@@ -232,52 +150,74 @@ function AnimatedProgress({ value }: { value: number }) {
 // ─── Screen ───────────────────────────────────────────────────
 export default function ProcessingScreen() {
   const store = useOnboardingStore();
-  const { setProfile, setOnboardingDone } = useUserStore();
+  const { setProfile } = useUserStore();
+  const seedMilestonesSeen = useStatsStore((s) => s.seedMilestonesSeen);
 
-  const birthDate  = store.dateOfBirth ?? new Date(1996, 0, 1);
-  const STATS      = computeStats(
+  const birthDate = store.dateOfBirth ?? new Date(1996, 0, 1);
+  const STATS     = computeStats(
     birthDate,
     store.sleepHours,
     store.coffeeCups,
     store.phoneHours,
-    store.exercise
+    store.exercise,
+    store.waterGlasses,
+    store.musicHours
   );
 
   const [activeCount, setActiveCount] = useState(0);
   const [complete,    setComplete]    = useState(false);
   const [progress,    setProgress]    = useState(0);
+  const [centerIcon,  setCenterIcon]  = useState<string>('compass-outline');
 
-  // Orbit animation around the logo
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Animations
   const logoScale   = useSharedValue(0.7);
   const logoOpacity = useSharedValue(0);
   const titleOp     = useSharedValue(0);
-  const titleY      = useSharedValue(16);
+  const titleY      = useSharedValue(12);
   const doneOp      = useSharedValue(0);
   const doneScale   = useSharedValue(0.85);
+  const iconOp      = useSharedValue(1);
+
+  function swapIcon(nextIcon: string) {
+    iconOp.value = withTiming(0, { duration: 100 }, (done) => {
+      if (done) {
+        runOnJS(setCenterIcon)(nextIcon);
+        iconOp.value = withTiming(1, { duration: 220 });
+      }
+    });
+  }
 
   useEffect(() => {
-    // Logo enters
+    // Safety guard: never fabricate a profile from a missing birthday. If the
+    // DOB step was somehow skipped, send the user back to it instead of
+    // computing every stat against the placeholder 1996 date. Returning here
+    // also skips scheduling the timers below (nothing to clean up).
+    if (!store.dateOfBirth) {
+      router.replace('/onboarding/birthday');
+      return;
+    }
+
     logoScale.value   = withSpring(1, { stiffness: 200, damping: 18 });
     logoOpacity.value = withTiming(1, { duration: 500 });
+    titleOp.value     = withDelay(400, withTiming(1, { duration: 400 }));
+    titleY.value      = withDelay(400, withSpring(0, { stiffness: 180, damping: 18 }));
 
-    // Title enters
-    titleOp.value = withDelay(400, withTiming(1, { duration: 400 }));
-    titleY.value  = withDelay(400, withSpring(0, { stiffness: 180, damping: 18 }));
-
-    // Stagger stats
-    const STAT_GAP = 860;
+    const STAT_GAP = 620;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    STATS.forEach((_, i) => {
+    STATS.forEach((stat, i) => {
       timers.push(
         setTimeout(() => {
           setActiveCount(i + 1);
           setProgress(Math.round(((i + 1) / STATS.length) * 85));
+          swapIcon(stat.icon);
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
         }, 900 + i * STAT_GAP)
       );
     });
 
-    // Complete state
     const completeAt = 900 + STATS.length * STAT_GAP + 400;
     timers.push(
       setTimeout(() => {
@@ -285,26 +225,41 @@ export default function ProcessingScreen() {
         setComplete(true);
         doneOp.value    = withTiming(1, { duration: 400 });
         doneScale.value = withSpring(1, { stiffness: 220, damping: 20 });
+        swapIcon('checkmark');
       }, completeAt)
     );
 
-    // Auto-advance — commit profile first
     timers.push(
       setTimeout(() => {
-        // Commit all onboarding data to userStore
-        const today = format(new Date(), 'yyyy-MM-dd');
-        setProfile({
-          firstName:          store.firstName,
-          dateOfBirth:        format(birthDate, 'yyyy-MM-dd'),
-          sleepHoursPerNight: store.sleepHours,
-          coffeeCupsPerDay:   store.coffeeCups,
-          phoneHoursPerDay:   store.phoneHours,
-          exerciseFrequency:  store.exercise,
-          interestCategories: store.interests,
-          notificationTime:   store.notificationTime,
-          isPro:              false,
-          appJoinDate:        today,
-        });
+        const today   = format(new Date(), 'yyyy-MM-dd');
+        const profile = {
+          firstName:            store.firstName,
+          dateOfBirth:          format(birthDate, 'yyyy-MM-dd'),
+          sleepHoursPerNight:   store.sleepHours,
+          coffeeCupsPerDay:     store.coffeeCups,
+          phoneHoursPerDay:     store.phoneHours,
+          exerciseFrequency:    store.exercise,
+          mealsPerDay:          store.mealsPerDay,
+          talkLevel:            store.talkLevel,
+          waterGlassesPerDay:   store.waterGlasses,
+          musicHoursPerDay:     store.musicHours,
+          commuteMinutesPerDay: store.commuteMinutes,
+          interestCategories:   store.interests,
+          notificationTime:     store.notificationTime,
+          isPro:                false,
+          appJoinDate:          today,
+        };
+        setProfile(profile);
+
+        const preMet = checkMilestones({
+          profile,
+          lifeStats:     computeLifeStats(profile),
+          streak:        0,
+          appDayIndex:   0,
+          totalUnlocked: 0,
+        }).map((m) => m.id);
+        seedMilestonesSeen(preMet);
+
         router.push('/onboarding/notifications');
       }, completeAt + 1400)
     );
@@ -312,84 +267,91 @@ export default function ProcessingScreen() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  const logoStyle  = useAnimatedStyle(() => ({
+  const logoStyle     = useAnimatedStyle(() => ({
     opacity:   logoOpacity.value,
     transform: [{ scale: logoScale.value }],
   }));
-  const titleStyle = useAnimatedStyle(() => ({
+  const titleStyle    = useAnimatedStyle(() => ({
     opacity:   titleOp.value,
     transform: [{ translateY: titleY.value }],
   }));
-  const doneStyle  = useAnimatedStyle(() => ({
+  const doneStyle     = useAnimatedStyle(() => ({
     opacity:   doneOp.value,
     transform: [{ scale: doneScale.value }],
   }));
+  const iconAnimStyle = useAnimatedStyle(() => ({ opacity: iconOp.value }));
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ── Logo cluster ── */}
-      <View style={styles.logoCluster}>
-        <PulsingRing size={180} color={colors.green300} delay={0} />
-        <PulsingRing size={130} color={colors.green500} delay={400} />
+      {/*
+       * Single ScrollView containing everything — no fixed/scroll split.
+       * This eliminates the clipping of the first stat row that happened
+       * when the topSection was a fixed view and took too much height.
+       * scrollToEnd() still keeps the latest stat in view as they appear.
+       */}
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+
+        {/* ── Logo circle (no orbit dots) ── */}
         <Animated.View style={[styles.logoCircle, logoStyle]}>
-          <Text style={styles.logoG}>G</Text>
+          <Animated.View style={iconAnimStyle}>
+            <Ionicons name={centerIcon as any} size={30} color={colors.white} />
+          </Animated.View>
         </Animated.View>
-      </View>
 
-      {/* ── Title ── */}
-      <Animated.View style={[styles.titleBlock, titleStyle]}>
-        <Text style={styles.title}>
-          {complete ? 'Your world is ready' : 'Calculating your world…'}
-        </Text>
-        <AnimatedProgress value={progress} />
-        <Text style={styles.progressPct}>{progress}%</Text>
-      </Animated.View>
-
-      {/* ── Stat list ── */}
-      <View style={styles.statList}>
-        {STATS.map((stat, i) => (
-          <StatRow
-            key={stat.label}
-            {...stat}
-            active={i < activeCount}
-            delay={i * 80}
-          />
-        ))}
-      </View>
-
-      {/* ── Done badge ── */}
-      {complete ? (
-        <Animated.View style={[styles.doneBadge, doneStyle]}>
-          <Ionicons name="checkmark-circle" size={18} color={colors.green700} />
-          <Text style={styles.doneText}>Opening Gati…</Text>
+        {/* ── Title + progress ── */}
+        <Animated.View style={[styles.titleBlock, titleStyle]}>
+          <Text style={styles.title}>
+            {complete ? 'Your world is ready' : 'Calculating your world...'}
+          </Text>
+          <AnimatedProgress value={progress} />
+          <Text style={styles.progressPct}>{progress}%</Text>
         </Animated.View>
-      ) : null}
+
+        {/* ── Stat rows ── */}
+        <View style={styles.statList}>
+          {STATS.map((stat, i) => (
+            <StatRow
+              key={stat.label}
+              {...stat}
+              active={i < activeCount}
+              delay={i * 80}
+            />
+          ))}
+
+          {/* Done badge — appears after all stats */}
+          {complete && (
+            <Animated.View style={[styles.doneBadge, doneStyle]}>
+              <Ionicons name="checkmark-circle" size={17} color={colors.green700} />
+              <Text style={styles.doneText}>Opening Gati...</Text>
+            </Animated.View>
+          )}
+        </View>
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────
-const LOGO_SIZE = 80;
-
 const styles = StyleSheet.create({
   safe: {
     flex:            1,
     backgroundColor: colors.background,
-    alignItems:      'center',
-    paddingTop:      spacing[8],
-    paddingHorizontal: spacing[6],
+  },
+  scrollContent: {
+    alignItems:        'center',
+    paddingHorizontal: spacing[5],
+    paddingTop:        spacing[6],
+    paddingBottom:     spacing[8],
   },
 
-  // Logo
-  logoCluster: {
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing[6],
-  },
-  ring: {
-    position:   'absolute',
-    borderWidth: 1,
-  },
+  // ── Logo — clean circle, no orbit ──────────────────────────
   logoCircle: {
     width:           LOGO_SIZE,
     height:          LOGO_SIZE,
@@ -397,57 +359,53 @@ const styles = StyleSheet.create({
     backgroundColor: colors.green700,
     alignItems:      'center',
     justifyContent:  'center',
+    marginBottom:    spacing[5],
     elevation:       8,
     shadowColor:     colors.green900,
-    shadowOffset:    { width: 0, height: 6 },
-    shadowOpacity:   0.2,
-    shadowRadius:    14,
-  },
-  logoG: {
-    fontFamily: fontFamily.extraBold,
-    fontSize:   38,
-    color:      colors.white,
-    lineHeight: 44,
+    shadowOffset:    { width: 0, height: 5 },
+    shadowOpacity:   0.22,
+    shadowRadius:    12,
   },
 
-  // Title + progress
+  // ── Title + progress ────────────────────────────────────────
   titleBlock: {
     width:        '100%',
     alignItems:   'center',
-    marginBottom: spacing[6],
     gap:          spacing[2],
+    marginBottom: spacing[4],
   },
   title: {
     fontFamily:    fontFamily.bold,
     fontSize:      20,
     color:         colors.textPrimary,
     textAlign:     'center',
-    letterSpacing: -0.3,
-    marginBottom:  spacing[2],
+    letterSpacing: -0.4,
+    marginBottom:  spacing[1],
   },
   progressTrack: {
     width:           '100%',
-    height:          4,
+    height:          3,
     borderRadius:    radius.full,
     backgroundColor: colors.green100,
     overflow:        'hidden',
   },
   progressFill: {
-    height:          4,
+    height:          3,
     borderRadius:    radius.full,
     backgroundColor: colors.green700,
   },
   progressPct: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   12,
+    fontSize:   11,
     color:      colors.green700,
   },
 
-  // Stat list
+  // ── Stat list ───────────────────────────────────────────────
   statList: {
-    width:        '100%',
-    gap:          spacing[2],
+    width: '100%',
+    gap:   spacing[2],
   },
+
   statRow: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -455,13 +413,13 @@ const styles = StyleSheet.create({
     borderRadius:      radius.xl,
     borderWidth:       1,
     borderColor:       colors.border,
-    paddingVertical:   spacing[3],
+    paddingVertical:   spacing[2] + 2,
     paddingHorizontal: spacing[4],
     gap:               spacing[3],
   },
   statIcon: {
-    width:          36,
-    height:         36,
+    width:          34,
+    height:         34,
     borderRadius:   radius.md,
     alignItems:     'center',
     justifyContent: 'center',
@@ -469,39 +427,41 @@ const styles = StyleSheet.create({
   statLabel: {
     flex:       1,
     fontFamily: fontFamily.medium,
-    fontSize:   14,
+    fontSize:   12.5,
     color:      colors.textSecondary,
   },
   statValueWrap: {
     alignItems: 'flex-end',
   },
   statValue: {
-    fontFamily: fontFamily.bold,
-    fontSize:   17,
+    fontFamily:    fontFamily.bold,
+    fontSize:      15,
     letterSpacing: -0.3,
   },
   statSuffix: {
     fontFamily: fontFamily.regular,
-    fontSize:   11,
+    fontSize:   10,
     color:      colors.textMuted,
   },
 
-  // Done badge
+  // ── Done badge ──────────────────────────────────────────────
   doneBadge: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             spacing[2],
-    marginTop:       spacing[5],
-    paddingVertical: spacing[3],
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               spacing[2],
+    marginTop:         spacing[3],
+    paddingVertical:   spacing[3],
     paddingHorizontal: spacing[5],
-    backgroundColor: colors.green50,
-    borderRadius:    radius.full,
-    borderWidth:     1,
-    borderColor:     colors.green100,
+    backgroundColor:   colors.green50,
+    borderRadius:      radius.full,
+    borderWidth:       1,
+    borderColor:       colors.green100,
+    alignSelf:         'center',
   },
   doneText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.green700,
   },
 });

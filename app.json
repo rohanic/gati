@@ -5,33 +5,80 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "gati",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F5EE"
-    },
-    "ios": {
-      "bundleIdentifier": "com.gati.app",
-      "supportsTablet": false
+    "primaryColor": "#2A7D4F",
+    "backgroundColor": "#F8F5EF",
+    "owner": "rohanic",
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2A7D4F"
-      },
       "package": "com.gati.app",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8F5EF"
+      },
+      "predictiveBackGestureEnabled": true,
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "com.android.vending.BILLING"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
       "expo-router",
+      "expo-iap",
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.gati.app.** { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.facebook.jni.** { *; }\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**\n-keepattributes Signature\n-keepattributes *Annotation*\n-keepattributes SourceFile,LineNumberTable"
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F8F5EF",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-system-ui",
+        {
+          "backgroundColor": "#F8F5EF"
+        }
+      ],
       [
         "expo-font",
         {
@@ -39,17 +86,12 @@
         }
       ],
       [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#F5F5EE",
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 120
-        }
-      ],
-      [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Gati uses your location to find hidden gems near you."
+          "locationWhenInUsePermission": "Gati uses your location once, while the app is open, to find real places near you. Your location is never stored or shared.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isAndroidMotionActivityEnabled": false
         }
       ],
       [
@@ -57,13 +99,23 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#2A7D4F",
-          "defaultChannel": "default"
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": false
         }
       ]
     ],
-    "scheme": "gati",
     "experiments": {
-      "typedRoutes": true
-    }
+      "typedRoutes": true,
+      "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "80e87738-b4f3-4a78-b517-b632ce43b1f3"
+      }
+    },
+    "platforms": [
+      "android"
+    ]
   }
 }

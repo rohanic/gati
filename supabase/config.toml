@@ -1,0 +1,61 @@
+# Supabase project configuration.
+#
+# Required by `supabase functions deploy`. The project is already linked
+# (see supabase/.temp/project-ref); this file declares per-function settings.
+
+project_id = "lsvrojepabrgtabiujfi"
+
+# ─── Edge functions ───────────────────────────────────────────
+#
+# `verify_jwt` defaults to true, which makes the gateway require a valid JWT in
+# the Authorization header (the anon key counts). Each exception below is
+# deliberate.
+
+[functions.nearby-places]
+# Called with the user's JWT when signed in, or the anon key when signed out.
+# Both are valid JWTs, so the default gate is correct. The function does its
+# own per-caller rate limiting on top.
+verify_jwt = true
+
+[functions.place-photo]
+# MUST be false. This URL is loaded by React Native's <Image>, which sends no
+# Authorization header, so a JWT gate would 401 every thumbnail.
+#
+# Safe to expose: the handler accepts only a strict
+# `places/<id>/photos/<ref>` reference and 302-redirects to a keyless
+# googleusercontent URL. The Google API key never leaves the server, and the
+# redirect is cached for 24h so repeat views cost nothing.
+verify_jwt = false
+
+[functions.verify-purchase]
+# Entitlement. Always requires the user's JWT.
+verify_jwt = true
+
+[functions.delete-account]
+# Irreversible. Always requires the user's JWT.
+verify_jwt = true
+
+[functions.ai-place-pick]
+verify_jwt = true
+
+[functions.schedule-milestone-push]
+verify_jwt = true
+
+# ─── Cron-invoked push functions ──────────────────────────────
+#
+# These are called by pg_cron / the scheduler, which sends the service-role key
+# in the Authorization header AND the shared secret in `x-cron-secret`.
+# `validateCronSecret` fails closed if CRON_SECRET is unset, so the secret is
+# the real gate; the JWT check stays on as defence in depth.
+
+[functions.push-daily-stat]
+verify_jwt = true
+
+[functions.push-streak-saver]
+verify_jwt = true
+
+[functions.push-weekly-digest]
+verify_jwt = true
+
+[functions.push-scheduled]
+verify_jwt = true

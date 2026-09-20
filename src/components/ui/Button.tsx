@@ -79,15 +79,15 @@ const variantStyles: Record<Variant, { container: ViewStyle; label: TextStyle }>
 const sizeStyles: Record<Size, { container: ViewStyle; label: TextStyle }> = {
   sm: {
     container: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.sm },
-    label:     { fontFamily: fontFamily.semiBold, fontSize: 13 },
+    label:     { fontFamily: fontFamily.semiBold, fontSize: 12 },
   },
   md: {
     container: { paddingHorizontal: spacing[5], paddingVertical: spacing[3] + 2, borderRadius: radius.full },
-    label:     { fontFamily: fontFamily.bold, fontSize: 15 },
+    label:     { fontFamily: fontFamily.bold, fontSize: 14 },
   },
   lg: {
     container: { paddingHorizontal: spacing[7], paddingVertical: spacing[4], borderRadius: radius.full },
-    label:     { fontFamily: fontFamily.bold, fontSize: 17 },
+    label:     { fontFamily: fontFamily.bold, fontSize: 16 },
   },
 };
 

@@ -1,10 +1,23 @@
 /**
- * Mini map screen — shows place location context + link to native maps.
- * Uses expo-location for user coordinates.
- * Deep-links to Google Maps / Apple Maps for full navigation.
- * Spring entrance animations. NO emoji. NO purple. NO orange.
+ * Wander map screen — real interactive map powered by
+ * Leaflet.js + OpenStreetMap tiles (completely free, no API key).
+ *
+ * Layout:
+ *  ┌──────────────────────┐
+ *  │  ← back   Place name │  ← floating top bar (safe-area aware)
+ *  │                      │
+ *  │   real OSM map       │  ← WebView fills entire screen
+ *  │        📍            │
+ *  │                      │
+ *  │ ┌──────────────────┐ │
+ *  │ │ Place card       │ │  ← floating bottom card
+ *  │ │ [Maps] [Directions] │
+ *  │ └──────────────────┘ │
+ *  └──────────────────────┘
+ *
+ * NO emoji. NO purple. NO orange.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,19 +25,11 @@ import {
   Pressable,
   Linking,
   Platform,
-  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-  withRepeat,
-  withSequence,
-} from 'react-native-reanimated';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -32,429 +37,452 @@ import { useWanderStore } from '@/store/userStore';
 import { getCategoryMeta } from '@/components/wander';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 
-// ─── Animated map pin ───────────────────────────────────────────
-function MapPin({ color }: { color: string }) {
-  const bounce = useSharedValue(0);
+// ─── Shared HTML head (Leaflet CSS + JS) ────────────────────────
+const MAP_HEAD = `
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#f0f4ee; }
+  #map { width:100vw; height:100vh; }
+  .leaflet-control-attribution { font-size:9px !important; }
+  .leaflet-popup-content-wrapper {
+    border-radius:12px !important;
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    font-size:13px; font-weight:600;
+    box-shadow:0 4px 16px rgba(0,0,0,0.15) !important;
+  }
+  .leaflet-popup-tip { display:none; }
+</style>`;
 
-  useEffect(() => {
-    bounce.value = withRepeat(
-      withSequence(
-        withTiming(-6, { duration: 500 }),
-        withTiming(0,  { duration: 400 })
-      ),
-      -1,
-      true
-    );
-  }, []);
+const MAP_INIT = `
+  var map = L.map('map', { zoomControl: false, attributionControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://openstreetmap.org">OSM</a>'
+  }).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);`;
 
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: bounce.value }],
-  }));
-
-  return (
-    <Animated.View style={style}>
-      <View style={[styles.pin, { backgroundColor: color }]}>
-        <Ionicons name="location" size={20} color={colors.white} />
-      </View>
-      <View style={[styles.pinShadow, { backgroundColor: color + '33' }]} />
-    </Animated.View>
+function esc(s: string): string {
+  return s.replace(/['"<>&]/g, (c) =>
+    ({ "'": '&#39;', '"': '&quot;', '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] ?? c)
   );
 }
 
-// ─── Decorative map grid ────────────────────────────────────────
-function MapGrid({ placeColor }: { placeColor: string }) {
-  return (
-    <View style={styles.mapGrid}>
-      {/* Grid lines */}
-      {Array.from({ length: 6 }, (_, i) => (
-        <View
-          key={`h${i}`}
-          style={[styles.gridLineH, { top: `${(i + 1) * 14}%` as any }]}
-        />
-      ))}
-      {Array.from({ length: 6 }, (_, i) => (
-        <View
-          key={`v${i}`}
-          style={[styles.gridLineV, { left: `${(i + 1) * 14}%` as any }]}
-        />
-      ))}
+// ─── Single-place map ────────────────────────────────────────────
+function buildMapHTML(
+  lat: number,
+  lng: number,
+  placeName: string,
+  pinColor: string,
+  userLat?: number,
+  userLng?: number,
+): string {
+  const safeLabel = esc(placeName);
 
-      {/* "Road" lines */}
-      <View style={[styles.road, styles.roadH, { top: '40%' as any }]} />
-      <View style={[styles.road, styles.roadH, { top: '65%' as any }]} />
-      <View style={[styles.road, styles.roadV, { left: '35%' as any }]} />
+  const userMarker = (userLat !== undefined && userLng !== undefined)
+    ? `
+      var userIcon = L.divIcon({
+        html: '<div style="width:14px;height:14px;background:#3B82F6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>',
+        iconSize:[14,14],iconAnchor:[7,7],className:''
+      });
+      L.marker([${userLat},${userLng}],{icon:userIcon}).addTo(map).bindPopup('You are here');
+      map.fitBounds(
+        L.featureGroup([placeMarker, L.marker([${userLat},${userLng}])]).getBounds().pad(0.25)
+      );`
+    : `map.setView([${lat},${lng}], 15);`;
 
-      {/* "Block" fills */}
-      <View style={[styles.block, { top: '18%' as any, left: '8%' as any, width: 60, height: 38 }]} />
-      <View style={[styles.block, { top: '18%' as any, left: '50%' as any, width: 80, height: 38 }]} />
-      <View style={[styles.block, { top: '68%' as any, left: '8%' as any, width: 50, height: 46 }]} />
-      <View style={[styles.block, { top: '68%' as any, left: '48%' as any, width: 90, height: 46 }]} />
+  return `<!DOCTYPE html><html><head>${MAP_HEAD}</head><body><div id="map"></div><script>
+  ${MAP_INIT}
+  var pinColor = '${pinColor}';
+  var pinIcon = L.divIcon({
+    html: '<div style="position:relative;width:36px;height:44px;">' +
+          '<div style="width:36px;height:36px;background:' + pinColor +
+          ';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.3);"></div>' +
+          '<div style="position:absolute;top:8px;left:8px;width:20px;height:20px;background:white;border-radius:50%;opacity:0.9;"></div>' +
+          '</div>',
+    iconSize:[36,44],iconAnchor:[18,44],popupAnchor:[0,-46],className:''
+  });
+  var placeMarker = L.marker([${lat},${lng}],{icon:pinIcon}).addTo(map).bindPopup('<b>${safeLabel}</b>');
+  ${userMarker}
+  placeMarker.openPopup();
+<\/script></body></html>`;
+}
 
-      {/* Center pin */}
-      <View style={styles.pinContainer}>
-        <MapPin color={placeColor} />
-      </View>
-    </View>
+// ─── Overview map (all places) ───────────────────────────────────
+interface MapPin {
+  lat:   number;
+  lng:   number;
+  name:  string;
+  color: string;
+}
+
+function buildOverviewMapHTML(
+  pins:     MapPin[],
+  userLat?: number,
+  userLng?: number,
+): string {
+  const pinsJSON = JSON.stringify(
+    pins.map((p) => ({ lat: p.lat, lng: p.lng, name: esc(p.name), color: p.color }))
   );
+
+  const userMarkerJS = (userLat !== undefined && userLng !== undefined)
+    ? `
+      var uIcon = L.divIcon({
+        html:'<div style="width:14px;height:14px;background:#3B82F6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>',
+        iconSize:[14,14],iconAnchor:[7,7],className:''
+      });
+      L.marker([${userLat},${userLng}],{icon:uIcon}).addTo(map).bindPopup('You are here');
+      allLatLngs.push([${userLat},${userLng}]);`
+    : '';
+
+  const fitJS = (pins.length > 0 || (userLat !== undefined))
+    ? `if (allLatLngs.length > 1) { map.fitBounds(allLatLngs, { padding: [60, 60] }); }
+       else if (allLatLngs.length === 1) { map.setView(allLatLngs[0], 15); }
+       else { map.setView([0,0], 2); }`
+    : `map.setView([0,0], 2);`;
+
+  return `<!DOCTYPE html><html><head>${MAP_HEAD}</head><body><div id="map"></div><script>
+  ${MAP_INIT}
+  var pins = ${pinsJSON};
+  var allLatLngs = [];
+  pins.forEach(function(p) {
+    var icon = L.divIcon({
+      html:'<div style="position:relative;width:30px;height:36px;">' +
+           '<div style="width:30px;height:30px;background:'+p.color+
+           ';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>' +
+           '<div style="position:absolute;top:6px;left:6px;width:18px;height:18px;background:white;border-radius:50%;opacity:0.88;"></div>' +
+           '</div>',
+      iconSize:[30,36],iconAnchor:[15,36],popupAnchor:[0,-38],className:''
+    });
+    L.marker([p.lat,p.lng],{icon:icon}).addTo(map).bindPopup('<b>'+p.name+'</b>');
+    allLatLngs.push([p.lat,p.lng]);
+  });
+  ${userMarkerJS}
+  ${fitJS}
+<\/script></body></html>`;
 }
 
 // ─── Screen ─────────────────────────────────────────────────────
 export default function MapScreen() {
   const { placeId }  = useLocalSearchParams<{ placeId?: string }>();
-  const places       = useWanderStore((s) => s.places);
+  const insets       = useSafeAreaInsets();
+  const allPlaces    = useWanderStore((s) => s.places);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapReady,   setMapReady]   = useState(false);
 
-  const place = placeId ? places.find((p) => p.placeId === placeId) ?? null : null;
-  const meta  = place ? getCategoryMeta(place.category) : getCategoryMeta('all');
+  const place = placeId ? allPlaces.find((p) => p.placeId === placeId) ?? null : null;
+  const meta  = place ? getCategoryMeta(place.category) : getCategoryMeta('food');
 
   // ── Try to get user location ──
   useEffect(() => {
     Location.getForegroundPermissionsAsync().then(async ({ status }) => {
       if (status === 'granted') {
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
           setUserCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-        } catch { /* ignore */ }
+        } catch { /* ignored */ }
       }
     });
   }, []);
 
-  // ── Entrance ──
-  const mapOp    = useSharedValue(0);
-  const mapScale = useSharedValue(0.95);
-  const card1Op  = useSharedValue(0);
-  const card2Op  = useSharedValue(0);
-
-  useEffect(() => {
-    mapOp.value    = withTiming(1, { duration: 340 });
-    mapScale.value = withSpring(1, { stiffness: 200, damping: 20 });
-    card1Op.value  = withDelay(220, withTiming(1, { duration: 280 }));
-    card2Op.value  = withDelay(380, withTiming(1, { duration: 280 }));
-  }, []);
-
-  const mapStyle   = useAnimatedStyle(() => ({ opacity: mapOp.value, transform: [{ scale: mapScale.value }] }));
-  const card1Style = useAnimatedStyle(() => ({ opacity: card1Op.value }));
-  const card2Style = useAnimatedStyle(() => ({ opacity: card2Op.value }));
+  // ── Build map HTML ──
+  // Single place: centre on that place, show user dot if available.
+  // No place (Maps button from wander list): overview of all nearby places.
+  const mapHtml = useMemo(() => {
+    if (place) {
+      return buildMapHTML(
+        place.latitude, place.longitude, place.name,
+        meta.color, userCoords?.lat, userCoords?.lng,
+      );
+    }
+    // Overview map — all unvisited places in the store + user dot
+    const pins: MapPin[] = allPlaces
+      .filter((p) => !p.isVisited)
+      .slice(0, 30)
+      .map((p) => ({
+        lat:   p.latitude,
+        lng:   p.longitude,
+        name:  p.name,
+        color: getCategoryMeta(p.category).color,
+      }));
+    if (pins.length > 0 || userCoords) {
+      return buildOverviewMapHTML(pins, userCoords?.lat, userCoords?.lng);
+    }
+    return null;
+  }, [place, allPlaces, userCoords, meta.color]);
 
   const openMaps = useCallback(() => {
     if (!place) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { latitude: lat, longitude: lng, name } = place;
-    const encodedName = encodeURIComponent(name);
+    const q   = encodeURIComponent(name);
     const url = Platform.OS === 'ios'
-      ? `maps://?q=${encodedName}&ll=${lat},${lng}`
-      : `geo:${lat},${lng}?q=${encodedName}`;
-    Linking.openURL(url).catch(() => {
-      // fallback to Google Maps web
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
-    });
+      ? `maps://?q=${q}&ll=${lat},${lng}`
+      : `geo:${lat},${lng}?q=${q}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`)
+    );
   }, [place]);
 
   const openDirections = useCallback(() => {
     if (!place) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { latitude: lat, longitude: lng, name } = place;
-    const encodedName = encodeURIComponent(name);
+    const { latitude: lat, longitude: lng } = place;
     const url = Platform.OS === 'ios'
       ? `maps://?daddr=${lat},${lng}&dirflg=w`
-      : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodedName}`;
-    Linking.openURL(url);
+      : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    // Fall back to the universal https maps URL if the native scheme fails
+    // (no Apple Maps, unsupported handler) — avoids an unhandled rejection.
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`)
+    );
   }, [place]);
 
+  const distanceLabel = place
+    ? place.distanceKm < 1
+      ? `${Math.round(place.distanceKm * 1000)} m away`
+      : `${place.distanceKm.toFixed(1)} km away`
+    : null;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
-          <Text style={styles.backLabel}>{place?.name ?? 'Map'}</Text>
+    <View style={styles.root}>
+
+      {/* ── Full-screen map ── */}
+      {mapHtml ? (
+        <WebView
+          source={{ html: mapHtml }}
+          style={styles.map}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          domStorageEnabled
+          onLoad={() => setMapReady(true)}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          // scrollEnabled must stay unset (default true) so Leaflet touch
+          // events (pan / zoom gestures) reach the JavaScript layer on Android.
+        />
+      ) : (
+        <View style={[styles.map, styles.mapPlaceholder]}>
+          <Ionicons name="map-outline" size={40} color={colors.green300} />
+          <Text style={styles.mapPlaceholderText}>
+            {userCoords === null ? 'Getting your location…' : 'No places to show'}
+          </Text>
+        </View>
+      )}
+
+      {/* Loading overlay while tiles fetch */}
+      {mapHtml && !mapReady && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.green700} />
+        </View>
+      )}
+
+      {/* ── Floating top bar ── */}
+      <View
+        style={[
+          styles.topBar,
+          { top: insets.top + spacing[2] },
+        ]}
+      >
+        <Pressable onPress={() => router.back()} style={styles.topBtn}>
+          <Ionicons name="arrow-back" size={18} color={colors.textPrimary} />
+          <Text style={styles.topBtnLabel} numberOfLines={1}>
+            {place?.name ?? 'Nearby places'}
+          </Text>
         </Pressable>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Map visual ── */}
-        <Animated.View style={[styles.mapContainer, mapStyle]}>
-          <MapGrid placeColor={meta.color} />
-
-          {/* Corner compass */}
-          <View style={styles.compass}>
-            <Ionicons name="navigate-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.compassText}>N</Text>
-          </View>
-        </Animated.View>
-
-        {/* ── Place info card ── */}
-        {place && (
-          <Animated.View style={[styles.card, card1Style]}>
+      {/* ── Floating bottom card ── */}
+      {place && (
+        <View
+          style={[
+            styles.bottomCard,
+            { paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2] },
+          ]}
+        >
+          {/* Place summary row */}
+          <View style={styles.placeRow}>
             <View style={[styles.placeIconWrap, { backgroundColor: meta.bgColor }]}>
-              <Ionicons name={meta.icon as any} size={22} color={meta.color} />
+              <Ionicons name={meta.icon as any} size={20} color={meta.color} />
             </View>
             <View style={styles.placeInfo}>
-              <Text style={styles.placeName}>{place.name}</Text>
-              <Text style={styles.placeAddress} numberOfLines={2}>{place.address}</Text>
-            </View>
-            <View style={[styles.distBadge]}>
-              <Text style={styles.distText}>
-                {place.distanceKm < 1
-                  ? `${Math.round(place.distanceKm * 1000)} m`
-                  : `${place.distanceKm.toFixed(1)} km`}
+              <Text style={styles.placeName} numberOfLines={1}>
+                {place.name}
               </Text>
+              {place.address ? (
+                <Text style={styles.placeAddress} numberOfLines={1}>
+                  {place.address}
+                </Text>
+              ) : null}
             </View>
-          </Animated.View>
-        )}
-
-        {/* ── Coordinate info ── */}
-        {place && (
-          <Animated.View style={[styles.coordCard, card1Style]}>
-            <View style={styles.coordRow}>
-              <Text style={styles.coordLabel}>Lat</Text>
-              <Text style={styles.coordVal}>{place.latitude.toFixed(4)}</Text>
-            </View>
-            <View style={styles.coordDivider} />
-            <View style={styles.coordRow}>
-              <Text style={styles.coordLabel}>Long</Text>
-              <Text style={styles.coordVal}>{place.longitude.toFixed(4)}</Text>
-            </View>
-            {userCoords && (
-              <>
-                <View style={styles.coordDivider} />
-                <View style={styles.coordRow}>
-                  <Text style={styles.coordLabel}>Your location</Text>
-                  <Text style={styles.coordVal}>
-                    {userCoords.lat.toFixed(4)}, {userCoords.lng.toFixed(4)}
-                  </Text>
-                </View>
-              </>
+            {distanceLabel && (
+              <View style={styles.distBadge}>
+                <Ionicons name="navigate-outline" size={11} color={colors.green700} />
+                <Text style={styles.distText}>{distanceLabel}</Text>
+              </View>
             )}
-          </Animated.View>
-        )}
+          </View>
 
-        {/* ── Action buttons ── */}
-        <Animated.View style={[styles.buttonGroup, card2Style]}>
-          <Pressable
-            onPress={openMaps}
-            style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && { opacity: 0.8 }]}
-          >
-            <Ionicons name="map-outline" size={18} color={colors.green700} />
-            <Text style={styles.btnOutlineText}>Open in Maps</Text>
-          </Pressable>
-          {place && (
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Action buttons */}
+          <View style={styles.btnRow}>
+            <Pressable
+              onPress={openMaps}
+              style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && { opacity: 0.8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open in Maps"
+            >
+              <Ionicons name="map-outline" size={17} color={colors.green700} />
+              <Text style={styles.btnOutlineText}>Open in Maps</Text>
+            </Pressable>
+
             <Pressable
               onPress={openDirections}
               style={({ pressed }) => [styles.btn, styles.btnFill, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Get directions"
             >
-              <Ionicons name="navigate" size={18} color={colors.white} />
-              <Text style={styles.btnFillText}>Get directions</Text>
+              <Ionicons name="navigate" size={17} color={colors.white} />
+              <Text style={styles.btnFillText}>Directions</Text>
             </Pressable>
-          )}
-        </Animated.View>
-
-        <View style={{ height: spacing[10] }} />
-      </ScrollView>
-    </SafeAreaView>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex:            1,
     backgroundColor: colors.background,
   },
-  topBar: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingHorizontal: spacing[4],
-    paddingVertical:   spacing[3],
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing[1] + 1,
-    padding:       spacing[1],
-  },
-  backLabel: {
-    fontFamily:  fontFamily.medium,
-    fontSize:    15,
-    color:       colors.textPrimary,
-    flex:        1,
-  },
 
-  scroll:  { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[2] },
-
-  // Map
-  mapContainer: {
-    height:          240,
-    borderRadius:    radius.xl,
-    backgroundColor: colors.green50,
-    borderWidth:     1,
-    borderColor:     colors.green100,
-    marginBottom:    spacing[4],
-    overflow:        'hidden',
-    position:        'relative',
+  // Map fills the whole screen (cards float above it)
+  map: {
+    ...StyleSheet.absoluteFill,
   },
-  mapGrid: {
-    flex: 1,
-    position: 'relative',
-  },
-  gridLineH: {
-    position:        'absolute',
-    left:            0,
-    right:           0,
-    height:          1,
-    backgroundColor: colors.green100,
-  },
-  gridLineV: {
-    position:        'absolute',
-    top:             0,
-    bottom:          0,
-    width:           1,
-    backgroundColor: colors.green100,
-  },
-  road: {
-    position:        'absolute',
-    backgroundColor: colors.green100,
-    opacity:         0.45,
-  },
-  roadH: {
-    left:   0,
-    right:  0,
-    height: 8,
-  },
-  roadV: {
-    top:    0,
-    bottom: 0,
-    width:  8,
-  },
-  block: {
-    position:        'absolute',
-    backgroundColor: colors.green100,
-    borderRadius:    3,
-  },
-  pinContainer: {
-    position:       'absolute',
-    top:            0,
-    left:           0,
-    right:          0,
-    bottom:         0,
+  mapPlaceholder: {
     alignItems:     'center',
     justifyContent: 'center',
+    backgroundColor: colors.green50,
+    gap:            spacing[3],
   },
-  pin: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
-    alignItems:      'center',
-    justifyContent:  'center',
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 3 },
-    shadowOpacity:   0.2,
-    shadowRadius:    5,
-    elevation:       5,
-  },
-  pinShadow: {
-    width:       24,
-    height:      8,
-    borderRadius: 12,
-    alignSelf:   'center',
-    marginTop:   2,
-  },
-  compass: {
-    position:  'absolute',
-    top:       spacing[3],
-    right:     spacing[3],
-    alignItems: 'center',
-    gap:       2,
-  },
-  compassText: {
-    fontFamily: fontFamily.bold,
-    fontSize:   10,
+  mapPlaceholderText: {
+    fontFamily: fontFamily.medium,
+    fontSize:   14,
     color:      colors.textMuted,
   },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems:     'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
 
-  // Place info card
-  card: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: colors.white,
-    borderRadius:    radius.xl,
-    borderWidth:     1,
-    borderColor:     colors.border,
-    padding:         spacing[4],
-    gap:             spacing[3],
-    marginBottom:    spacing[3],
-    ...shadow.xs,
+  // ── Floating top bar
+  topBar: {
+    position:          'absolute',
+    left:              spacing[4],
+    right:             spacing[4],
+    zIndex:            10,
+    flexDirection:     'row',
+    alignItems:        'center',
+  },
+  topBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing[1] + 1,
+    paddingVertical:   spacing[2],
+    paddingHorizontal: spacing[3],
+    borderRadius:      radius.full,
+    backgroundColor:   'rgba(255,255,255,0.93)',
+    borderWidth:       1,
+    borderColor:       'rgba(0,0,0,0.08)',
+    maxWidth:          '70%',
+    ...shadow.sm,
+  },
+  topBtnLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   13.5,
+    color:      colors.textPrimary,
+    flexShrink: 1,
+  },
+
+  // ── Bottom card
+  bottomCard: {
+    position:          'absolute',
+    bottom:            0,
+    left:              0,
+    right:             0,
+    backgroundColor:   colors.white,
+    borderTopLeftRadius:  radius.xl + 4,
+    borderTopRightRadius: radius.xl + 4,
+    paddingTop:        spacing[4],
+    paddingHorizontal: spacing[5],
+    borderTopWidth:    1,
+    borderTopColor:    colors.border,
+    ...shadow.lg,
+  },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing[3],
+    marginBottom:  spacing[3],
   },
   placeIconWrap: {
-    width:          48,
-    height:         48,
+    width:          44,
+    height:         44,
     borderRadius:   radius.lg,
     alignItems:     'center',
     justifyContent: 'center',
+    flexShrink:     0,
   },
-  placeInfo:    { flex: 1 },
+  placeInfo: {
+    flex: 1,
+    gap:  3,
+  },
   placeName: {
-    fontFamily:   fontFamily.bold,
-    fontSize:     15,
-    color:        colors.textPrimary,
-    marginBottom: 3,
+    fontFamily: fontFamily.bold,
+    fontSize:   14.5,
+    color:      colors.textPrimary,
   },
   placeAddress: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
-    lineHeight: 17,
   },
   distBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               3,
     paddingVertical:   spacing[1] + 1,
     paddingHorizontal: spacing[3],
     borderRadius:      radius.full,
     backgroundColor:   colors.green50,
     borderWidth:       1,
     borderColor:       colors.green100,
+    flexShrink:        0,
   },
   distText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   12,
+    fontSize:   11,
     color:      colors.green700,
   },
-
-  // Coordinates
-  coordCard: {
-    backgroundColor: colors.white,
-    borderRadius:    radius.xl,
-    borderWidth:     1,
-    borderColor:     colors.border,
-    padding:         spacing[4],
-    marginBottom:    spacing[3],
-    gap:             spacing[1],
-  },
-  coordRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-    paddingVertical: spacing[1] + 1,
-  },
-  coordDivider: {
+  divider: {
     height:          1,
     backgroundColor: colors.borderLight,
+    marginBottom:    spacing[3],
   },
-  coordLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize:   13,
-    color:      colors.textSecondary,
-  },
-  coordVal: {
-    fontFamily: fontFamily.regular,
-    fontSize:   13,
-    color:      colors.textMuted,
-  },
-
-  buttonGroup: {
+  btnRow: {
     flexDirection: 'row',
     gap:           spacing[3],
   },
@@ -464,7 +492,7 @@ const styles = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
     gap:             spacing[2],
-    paddingVertical: spacing[4],
+    paddingVertical: spacing[3] + 2,
     borderRadius:    radius.lg,
   },
   btnOutline: {
@@ -474,7 +502,7 @@ const styles = StyleSheet.create({
   },
   btnOutlineText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.green700,
   },
   btnFill: {
@@ -482,7 +510,7 @@ const styles = StyleSheet.create({
   },
   btnFillText: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.white,
   },
 });

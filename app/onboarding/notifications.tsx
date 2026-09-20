@@ -108,7 +108,9 @@ function TimeCard({
           <Text style={styles.timeSub}>{option.sub}</Text>
         </View>
         {selected ? (
-          <View style={styles.selectedDot} />
+          <View style={styles.selectedDot}>
+            <Ionicons name="checkmark" size={12} color={colors.white} />
+          </View>
         ) : (
           <View style={styles.unselectedDot} />
         )}
@@ -168,7 +170,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <OnboardingShell step={5}>
+    <OnboardingShell step={13}>
       <View style={styles.content}>
         {/* Header */}
         <Animated.View style={[styles.header, headStyle]}>
@@ -223,15 +225,15 @@ const styles = StyleSheet.create({
   },
   question: {
     fontFamily:    fontFamily.bold,
-    fontSize:      30,
+    fontSize:      28,
     color:         colors.textPrimary,
-    lineHeight:    38,
+    lineHeight:    35.5,
     marginBottom:  spacing[3],
     letterSpacing: -0.5,
   },
   hint: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
   timeText: { flex: 1 },
   timeLabel: {
     fontFamily:   fontFamily.semiBold,
-    fontSize:     15,
+    fontSize:     14,
     color:        colors.textPrimary,
     marginBottom: 2,
   },
@@ -273,12 +275,12 @@ const styles = StyleSheet.create({
   },
   timeValue: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textSecondary,
   },
   timeSub: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textMuted,
   },
   selectedDot: {
@@ -311,7 +313,7 @@ const styles = StyleSheet.create({
   },
   nextText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.white,
     letterSpacing: 0.2,
   },

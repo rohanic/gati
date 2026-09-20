@@ -179,7 +179,7 @@ export default function BirthdayScreen() {
     const d = new Date(selectedYear, selectedMonth, selectedDay);
     setDateOfBirth(d);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/onboarding/lifestyle');
+    router.push('/onboarding/sleep');
   };
 
   return (
@@ -250,15 +250,15 @@ const styles = StyleSheet.create({
   },
   question: {
     fontFamily:    fontFamily.bold,
-    fontSize:      32,
+    fontSize:      30,
     color:         colors.textPrimary,
-    lineHeight:    40,
+    lineHeight:    37.5,
     marginBottom:  spacing[3],
     letterSpacing: -0.5,
   },
   hint: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 
@@ -302,12 +302,12 @@ const styles = StyleSheet.create({
   },
   wheelText: {
     fontFamily: fontFamily.medium,
-    fontSize:   16,
+    fontSize:   15,
     color:      colors.textPrimary,
   },
   wheelTextSelected: {
     fontFamily: fontFamily.bold,
-    fontSize:   17,
+    fontSize:   16,
     color:      colors.green700,
   },
   wheelTextNear: {
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   wheelTextFar: {
     color:   colors.textMuted,
     opacity: 0.3,
-    fontSize: 14,
+    fontSize: 13,
   },
 
   // Preview stat
@@ -332,14 +332,14 @@ const styles = StyleSheet.create({
   },
   previewNumber: {
     fontFamily:   fontFamily.extraBold,
-    fontSize:     36,
+    fontSize:     34,
     color:        colors.green700,
     letterSpacing: -0.5,
     marginBottom: spacing[1],
   },
   previewLabel: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
 
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   nextText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      17,
+    fontSize:      16,
     color:         colors.white,
     letterSpacing: 0.2,
   },

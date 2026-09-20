@@ -78,11 +78,11 @@ const styles = StyleSheet.create({
     alignSelf:      'flex-start',
   },
   icon: {
-    fontSize: 12,
+    fontSize: 11.5,
   },
   label: {
     fontFamily:    fontFamily.bold,
-    fontSize:      12,
+    fontSize:      11.5,
     letterSpacing: 0.3,
   },
 });

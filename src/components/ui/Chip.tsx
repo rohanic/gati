@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     borderWidth:    1.5,
   },
   icon: {
-    fontSize: 16,
+    fontSize: 15,
   },
   label: {
     fontFamily: fontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textSecondary,
   },
   labelSelected: {

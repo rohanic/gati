@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, fontFamily } from '@/theme';
+import { colors, spacing, radius, fontFamily, categoryTheme } from '@/theme';
 
 export type CategoryKey = 'all' | 'time' | 'body' | 'habits' | 'social';
 
@@ -25,12 +25,13 @@ interface CategoryMeta {
   activeBg:    string;
 }
 
+// Colors come from the central category theme — single source of truth.
 const CATEGORIES: CategoryMeta[] = [
-  { key: 'all',    label: 'All',    icon: 'apps-outline',            activeColor: colors.green700, activeBg: colors.green50      },
-  { key: 'time',   label: 'Time',   icon: 'time-outline',            activeColor: '#5B7FE8',       activeBg: '#EEF1FD'            },
-  { key: 'body',   label: 'Body',   icon: 'heart-outline',           activeColor: '#D94F4F',       activeBg: '#FFF0F0'            },
-  { key: 'habits', label: 'Habits', icon: 'cafe-outline',            activeColor: colors.gold,     activeBg: colors.goldBg        },
-  { key: 'social', label: 'Social', icon: 'people-outline',          activeColor: colors.green500, activeBg: colors.green50       },
+  { key: 'all',    label: 'All',    icon: 'apps-outline', activeColor: colors.green700, activeBg: colors.green50 },
+  { key: 'time',   label: categoryTheme.time.label,   icon: categoryTheme.time.iconOutline,   activeColor: categoryTheme.time.accent,   activeBg: categoryTheme.time.bg   },
+  { key: 'body',   label: categoryTheme.body.label,   icon: categoryTheme.body.iconOutline,   activeColor: categoryTheme.body.accent,   activeBg: categoryTheme.body.bg   },
+  { key: 'habits', label: categoryTheme.habits.label, icon: categoryTheme.habits.iconOutline, activeColor: categoryTheme.habits.accent, activeBg: categoryTheme.habits.bg },
+  { key: 'social', label: categoryTheme.social.label, icon: categoryTheme.social.iconOutline, activeColor: categoryTheme.social.accent, activeBg: categoryTheme.social.bg },
 ];
 
 // ─── Single animated pill ────────────────────────────────────
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
   },
   pillLabel: {
     fontFamily: fontFamily.medium,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
   },
 });

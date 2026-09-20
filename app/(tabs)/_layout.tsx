@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, StyleSheet, Platform } from 'react-native';
-import { Tabs, usePathname } from 'expo-router';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -8,11 +8,12 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  interpolateColor,
   Extrapolation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, shadow, spacing } from '@/theme';
+import { colors, fontFamily, radius, shadow, spacing } from '@/theme';
 
 // ─── Tab configuration ────────────────────────────────────────
 const TABS = [
@@ -89,20 +90,7 @@ function TabIcon({
     ],
   }));
 
-  // Dot indicator below icon
-  const dotStyle = useAnimatedStyle(() => ({
-    opacity: focusValue.value,
-    transform: [
-      {
-        scale: interpolate(
-          focusValue.value,
-          [0, 1],
-          [0, 1],
-          Extrapolation.CLAMP
-        ),
-      },
-    ],
-  }));
+  // (dot removed — replaced by text label below the icon)
 
   // Press spring
   const pressStyle = useAnimatedStyle(() => ({
@@ -122,6 +110,15 @@ function TabIcon({
     onPress();
   };
 
+  // Animate label color between active/inactive
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      focusValue.value,
+      [0, 1],
+      [colors.textMuted, colors.green700],
+    ),
+  }));
+
   return (
     <Pressable
       onPress={handlePress}
@@ -133,19 +130,24 @@ function TabIcon({
       accessibilityState={{ selected: isFocused }}
     >
       <Animated.View style={pressStyle}>
-        {/* Pill background — only visible when active */}
-        <Animated.View style={[styles.pill, pillStyle]} />
-
-        {/* Icon */}
-        <Ionicons
-          name={isFocused ? tab.iconActive : tab.iconInactive}
-          size={24}
-          color={isFocused ? colors.green700 : colors.textMuted}
-        />
+        {/*
+         * Fixed-size container — pill uses absoluteFill so it always
+         * sits perfectly centred behind the icon, no manual offsets.
+         */}
+        <View style={styles.iconContainer}>
+          <Animated.View style={[StyleSheet.absoluteFill, styles.pill, pillStyle]} />
+          <Ionicons
+            name={isFocused ? tab.iconActive : tab.iconInactive}
+            size={22}
+            color={isFocused ? colors.green700 : colors.textMuted}
+          />
+        </View>
       </Animated.View>
 
-      {/* Dot indicator */}
-      <Animated.View style={[styles.dot, dotStyle]} />
+      {/* Text label — always visible, color animates */}
+      <Animated.Text style={[styles.tabLabel, labelStyle]}>
+        {tab.label}
+      </Animated.Text>
     </Pressable>
   );
 }
@@ -159,13 +161,6 @@ function CustomTabBar({
   navigation: any;
 }) {
   const insets = useSafeAreaInsets();
-  const pathname = usePathname();
-
-  const getRouteName = (route: any): string => {
-    // Expo Router nests names like "(tabs)/today" — extract last segment
-    const parts = (route.name as string).split('/');
-    return parts[parts.length - 1];
-  };
 
   return (
     <View
@@ -220,34 +215,39 @@ export default function TabLayout() {
 // ─── Styles ───────────────────────────────────────────────────
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection:   'row',
-    backgroundColor: colors.white,
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
-    paddingTop:      spacing[2],
+    flexDirection:     'row',
+    backgroundColor:   colors.white,
+    borderTopWidth:    1,
+    borderTopColor:    colors.border,
+    paddingTop:        spacing[2],
     paddingHorizontal: spacing[2],
     ...shadow.sm,
   },
   tabItem: {
-    flex:           1,
+    flex:            1,
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingVertical: spacing[1],
+    gap:             3,
+  },
+  // Fixed-size container that the pill fills perfectly via absoluteFill.
+  // Icon is centred inside it — no manual offset needed.
+  iconContainer: {
+    width:          48,
+    height:         32,
+    borderRadius:   radius.md,
     alignItems:     'center',
     justifyContent: 'center',
-    paddingVertical: spacing[1],
-    gap:            5,
   },
   pill: {
-    position:        'absolute',
-    width:           44,
-    height:          44,
     borderRadius:    radius.md,
     backgroundColor: colors.green50,
-    top:             -10,
-    left:            -10,
+    borderWidth:     1,
+    borderColor:     colors.green100,
   },
-  dot: {
-    width:           4,
-    height:          4,
-    borderRadius:    radius.full,
-    backgroundColor: colors.green700,
+  tabLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize:   10,
+    // color is driven by Animated.Text + labelStyle above
   },
 });

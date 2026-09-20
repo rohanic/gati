@@ -3,6 +3,7 @@
  */
 
 export type ExerciseFrequency = 'regular' | 'sometimes' | 'rarely';
+export type TalkLevel        = 'quiet' | 'balanced' | 'chatty';
 
 export type InterestCategory =
   | 'food'
@@ -21,6 +22,12 @@ export interface UserProfile {
   coffeeCupsPerDay:     number;         // 0–8
   phoneHoursPerDay:     number;         // 1–12
   exerciseFrequency:    ExerciseFrequency;
+  mealsPerDay:          number;         // 1–4, default 3
+  talkLevel:            TalkLevel;      // affects words + laughs stats
+  // Optional — added later; engine falls back to sensible defaults
+  waterGlassesPerDay?:  number;         // 0–15, default 6
+  musicHoursPerDay?:    number;         // 0–12, default 2
+  commuteMinutesPerDay?: number;        // 0–180, default 30
   interestCategories:   InterestCategory[];
   notificationTime:     string;         // "HH:MM"
   isPro:                boolean;
@@ -77,6 +84,8 @@ export interface WanderPlace {
   visitedDate:    string | null;
   distanceKm:     number;
   openNow:        boolean | null;
+  /** Crowd-sourced Gati quality score from place_quality_scores (0–1). Null if < 1 rating exists. */
+  gatiScore:      number | null;
 }
 
 export interface TimelineEntry {

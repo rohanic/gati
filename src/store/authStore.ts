@@ -1,0 +1,317 @@
+/**
+ * Auth store — Supabase session state + cloud sync coordination.
+ *
+ * Not persisted by Zustand: Supabase's own AsyncStorage adapter owns session
+ * persistence. This store is a reactive layer on top of that session.
+ *
+ * Sign-in flows:
+ *   signInWithEmail → verifyOtp   (6-digit code)
+ *   signInWithGoogle              (system browser → PKCE code exchange)
+ *
+ * All of them converge on `_onSignIn`, which restores cloud data and then
+ * pushes local state back up.
+ *
+ * IMPORTANT: `_onSignIn` performs real network work and must NOT be called
+ * from inside `supabase.auth.onAuthStateChange`. That callback runs while
+ * supabase-js holds its internal auth lock; awaiting another Supabase call
+ * inside it can deadlock. `app/_layout.tsx` therefore only records the
+ * session synchronously there and schedules `_onSignIn` on a later tick, and
+ * only for events that represent a genuine new sign-in.
+ */
+import { create } from 'zustand';
+import { Platform, Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
+import { supabase }         from '@/services/supabase';
+import {
+  pushUserData, pullUserData, pushAnnotations, pullAnnotations, deleteAccount,
+} from '@/services/cloudSync';
+import { useUserStore, useStatsStore, useWanderStore } from '@/store/userStore';
+import { useStoryStore }    from '@/store/storyStore';
+import { registerPushToken, unregisterPushToken } from '@/services/notifications';
+
+// Required for expo-web-browser OAuth redirect handling.
+WebBrowser.maybeCompleteAuthSession();
+
+// ─── State shape ──────────────────────────────────────────────
+
+export interface AuthState {
+  userId:       string | null;
+  userEmail:    string | null;
+  isSyncing:    boolean;
+  lastSyncedAt: string | null;
+  syncError:    string | null;
+
+  /** Restore the Supabase session from AsyncStorage. Call once on app mount. */
+  restoreSession:   () => Promise<void>;
+  /** Step 1: send a 6-digit OTP to the email address. */
+  signInWithEmail:  (email: string) => Promise<void>;
+  /** Step 2: verify the OTP. Resolves true on a first-ever login. */
+  verifyOtp:        (email: string, token: string) => Promise<boolean>;
+  /** Google OAuth via the system browser. Resolves true on a first-ever login. */
+  signInWithGoogle: () => Promise<boolean>;
+  signOut:          () => Promise<void>;
+  /** Permanently delete the account and all server data, then sign out. */
+  deleteAccountAndSignOut: () => Promise<void>;
+  /** Push all local store data to the cloud. */
+  syncNow:          () => Promise<void>;
+  /** Record a session without any network work. Safe inside auth callbacks. */
+  setSession:       (userId: string, email: string | null) => void;
+  /** Full sign-in: cloud restore + push. Never call from an auth callback. */
+  _onSignIn:        (userId: string, email: string | null) => Promise<boolean>;
+}
+
+// ─── Store ────────────────────────────────────────────────────
+
+export const useAuthStore = create<AuthState>()((set, get) => ({
+  userId:       null,
+  userEmail:    null,
+  isSyncing:    false,
+  lastSyncedAt: null,
+  syncError:    null,
+
+  // ── Session ────────────────────────────────────────────────
+
+  setSession: (userId, email) => {
+    if (get().userId === userId) return;   // no-op: avoids a pointless render
+    set({ userId, userEmail: email });
+    useUserStore.getState().setUserId(userId);
+  },
+
+  restoreSession: async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        const { id, email } = data.session.user;
+        get().setSession(id, email ?? null);
+      }
+    } catch {
+      // Network error or unconfigured URL — fail silently.
+    }
+  },
+
+  // ── Email OTP ──────────────────────────────────────────────
+
+  signInWithEmail: async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    });
+    if (error) throw new Error(error.message);
+  },
+
+  verifyOtp: async (email, token) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+    if (error) throw new Error(error.message);
+    if (data.user) {
+      return get()._onSignIn(data.user.id, data.user.email ?? null);
+    }
+    return false;
+  },
+
+  // ── Google OAuth ───────────────────────────────────────────
+
+  signInWithGoogle: async () => {
+    const redirectUri = makeRedirectUri({ scheme: 'gati', path: 'auth/callback' });
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options:  { redirectTo: redirectUri, skipBrowserRedirect: true },
+    });
+    if (error) throw new Error(error.message);
+    if (!data.url) throw new Error('No OAuth URL returned from Supabase');
+
+    // On Android, Chrome Custom Tabs deliver the callback through Linking
+    // rather than the browser result — register the listener BEFORE opening
+    // the browser so the event cannot be missed.
+    let resolveLink: ((url: string) => void) | null = null;
+    const linkingPromise = new Promise<string>((resolve) => { resolveLink = resolve; });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      if (url.startsWith('gati://auth/callback')) resolveLink?.(url);
+    });
+
+    let callbackUrl: string | null = null;
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      if (result.type === 'success') {
+        callbackUrl = result.url;
+      } else if (Platform.OS === 'android') {
+        // 'dismiss' on Android usually means the redirect already fired.
+        callbackUrl = await Promise.race([
+          linkingPromise,
+          new Promise<null>((r) => setTimeout(() => r(null), 1_500)),
+        ]);
+      }
+    } finally {
+      sub.remove();
+    }
+
+    if (!callbackUrl) return false;   // user cancelled
+
+    const parsed = safeParseUrl(callbackUrl);
+    const code   = parsed?.searchParams.get('code');
+    if (!code) {
+      const errDesc = parsed?.searchParams.get('error_description');
+      if (errDesc) throw new Error(errDesc);
+      return false;
+    }
+
+    const { data: sessionData, error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw new Error(exchangeError.message);
+    if (sessionData.user) {
+      return get()._onSignIn(sessionData.user.id, sessionData.user.email ?? null);
+    }
+    return false;
+  },
+
+  // ── Sign out ───────────────────────────────────────────────
+
+  signOut: async () => {
+    const { userId } = get();
+    // Drop the push token first, while the session is still valid, so the
+    // server stops pushing to a device that is no longer signed in.
+    if (userId) await unregisterPushToken(userId).catch(() => {});
+
+    await supabase.auth.signOut();
+    set({ userId: null, userEmail: null, lastSyncedAt: null, syncError: null });
+    useUserStore.getState().setUserId(null);
+    // Clear ACCOUNT-bound entitlement so a paid account never leaks to the
+    // next account on this device. The device-level trial anchor survives, so
+    // signing out is not a way to farm fresh trials.
+    useUserStore.getState().resetProStatus();
+  },
+
+  deleteAccountAndSignOut: async () => {
+    await deleteAccount();
+    // The server row is gone; clear the local session and entitlement.
+    try { await supabase.auth.signOut(); } catch { /* session already void */ }
+    set({ userId: null, userEmail: null, lastSyncedAt: null, syncError: null });
+    useUserStore.getState().setUserId(null);
+    useUserStore.getState().resetProStatus();
+  },
+
+  // ── Sync ───────────────────────────────────────────────────
+
+  syncNow: async () => {
+    const { userId, isSyncing } = get();
+    if (!userId || isSyncing) return;
+    set({ isSyncing: true, syncError: null });
+    try {
+      const userState   = useUserStore.getState();
+      const statsState  = useStatsStore.getState();
+      const wanderState = useWanderStore.getState();
+      const storyState  = useStoryStore.getState();
+
+      if (!userState.profile) throw new Error('No profile to sync');
+
+      await Promise.all([
+        pushUserData(userId, {
+          profile:            userState.profile,
+          categoryScores:     wanderState.categoryScores,
+          unlockedStats:      statsState.unlockedStats,
+          openHistoryRanges:  statsState.openHistoryRanges,
+          maxStreakEver:      statsState.maxStreakEver,
+          streakFreezeCount:  statsState.streakFreezeCount,
+          frozenDates:        statsState.frozenDates,
+          milestoneSeenDates: statsState.milestoneSeenDates,
+          seenMilestoneIds:   statsState.seenMilestoneIds,
+          savedStatIds:       statsState.savedStatIds,
+          // Entitlement columns are deliberately absent — server-owned.
+        }),
+        pushAnnotations(userId, storyState.annotations),
+      ]);
+
+      set({ lastSyncedAt: new Date().toISOString() });
+    } catch (e) {
+      set({ syncError: (e as Error).message });
+      throw e;
+    } finally {
+      set({ isSyncing: false });
+    }
+  },
+
+  // ── Internal: full sign-in ─────────────────────────────────
+
+  _onSignIn: async (userId, email) => {
+    get().setSession(userId, email);
+
+    let isFirstLogin = false;
+
+    // Best-effort cloud restore — never blocks the UI or loses local data.
+    try {
+      const [cloudData, cloudAnnotations] = await Promise.all([
+        pullUserData(userId),
+        pullAnnotations(userId),
+      ]);
+
+      if (cloudData) {
+        // Restore the profile only on a fresh install (no local profile).
+        if (!useUserStore.getState().profile && cloudData.profile) {
+          useUserStore.getState().setProfile(cloudData.profile);
+        }
+        useStatsStore.getState().importStatsData({
+          unlockedStats:      cloudData.unlockedStats,
+          openHistoryRanges:  cloudData.openHistoryRanges,
+          maxStreakEver:      cloudData.maxStreakEver,
+          streakFreezeCount:  cloudData.streakFreezeCount,
+          frozenDates:        cloudData.frozenDates,
+          milestoneSeenDates: cloudData.milestoneSeenDates,
+          seenMilestoneIds:   cloudData.seenMilestoneIds,
+          savedStatIds:       cloudData.savedStatIds,
+        });
+        useWanderStore.getState().importCategoryScores(cloudData.categoryScores);
+        // Entitlement comes straight from the server-owned columns. Unlike the
+        // previous "merge, never downgrade" logic, this accepts downgrades —
+        // that is how a cancelled or refunded subscription actually loses Pro.
+        useUserStore.getState().importEntitlement(
+          cloudData.trialStartedAt,
+          cloudData.isPro,
+          cloudData.proExpiresAt,
+          cloudData.proProductId,
+        );
+        isFirstLogin = !cloudData.trialStartedAt && !cloudData.isPro;
+      } else {
+        isFirstLogin = true;
+      }
+
+      if (Object.keys(cloudAnnotations).length > 0) {
+        useStoryStore.getState().importAnnotations(cloudAnnotations);
+      }
+    } catch (e) {
+      // Non-critical: local data is intact.
+      if (__DEV__) console.warn('[authStore] Cloud restore failed:', e);
+    }
+
+    // The trial is started at onboarding (see onboarding/complete.tsx) so it
+    // is available to users who never sign in. This call is only a safety net
+    // for accounts created before that, and is a no-op once a device anchor
+    // exists — which is what stops sign-out/sign-up trial farming.
+    useUserStore.getState().startTrial();
+
+    // Push local state up. The first push also creates the cloud row, whose
+    // trial_started_at the database stamps server-side.
+    try {
+      await get().syncNow();
+    } catch {
+      // syncNow already recorded syncError; never throw out of sign-in.
+    }
+
+    // Register this device for server-side push.
+    registerPushToken(userId).catch(() => {});
+
+    return isFirstLogin;
+  },
+}));
+
+/** URL parsing that never throws on a malformed callback. */
+function safeParseUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}

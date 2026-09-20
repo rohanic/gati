@@ -4,42 +4,28 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    // Declared explicitly: the Jest globals used by __tests__ are not part of
+    // the React Native ambient environment, and automatic @types discovery is
+    // ambiguous once `baseUrl` is gone.
+    "types": ["jest", "node"],
+    // No `baseUrl`: deprecated in TypeScript 6 and removed in 7. `paths` below
+    // resolve relative to this file, which is what we want anyway.
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@theme": [
-        "./src/theme/index"
-      ],
-      "@theme/*": [
-        "./src/theme/*"
-      ],
-      "@components": [
-        "./src/components/ui/index"
-      ],
-      "@components/*": [
-        "./src/components/*"
-      ],
-      "@store/*": [
-        "./src/store/*"
-      ],
-      "@types/*": [
-        "./src/types/*"
-      ],
-      "@engine/*": [
-        "./src/engine/*"
-      ],
-      "@hooks/*": [
-        "./src/hooks/*"
-      ],
-      "@services/*": [
-        "./src/services/*"
-      ],
-      "@data/*": [
-        "./src/data/*"
-      ]
+      "@/*": ["./src/*"],
+      "@theme": ["./src/theme/index"],
+      "@theme/*": ["./src/theme/*"],
+      "@components": ["./src/components/ui/index"],
+      "@components/*": ["./src/components/*"],
+      "@store/*": ["./src/store/*"],
+      "@engine/*": ["./src/engine/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@services/*": ["./src/services/*"],
+      "@data/*": ["./src/data/*"]
+      // NOTE: the old `"@types/*": ["./src/types/*"]` mapping was removed. It
+      // shadowed the real `node_modules/@types` namespace, which is how
+      // TypeScript finds ambient type packages. Nothing imported through it —
+      // app code uses `@/types`.
     }
   },
   "include": [
@@ -48,5 +34,11 @@
     ".expo/types/**/*.d.ts",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/**",
+    "android/**",
+    "ios/**"
   ]
 }

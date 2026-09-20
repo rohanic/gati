@@ -5,7 +5,7 @@
  * Spring entrance from bottom, spring press per option.
  * NO emoji. NO purple. NO orange.
  */
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { View, Text, Modal, StyleSheet, Pressable, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { WanderPlace, UserRating } from '@/types';
-import { useWanderStore } from '@/store/userStore';
+import { useWanderStore, useUserStore } from '@/store/userStore';
+import { pushPlaceRating } from '@/services/cloudSync';
 
 // ─── Option config ──────────────────────────────────────────────
 interface RatingOption {
@@ -34,7 +35,7 @@ const RATING_OPTIONS: RatingOption[] = [
   {
     value:   'loved',
     label:   'Loved it',
-    sub:     'A favourite — show me more like this',
+    sub:     'A favourite. Show me more like this',
     icon:    'heart',
     color:   colors.green700,
     bgColor: colors.green50,
@@ -73,10 +74,12 @@ function RatingOptionBtn({
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Bounce runs in parallel — select fires immediately (double-tap is guarded
+    // at the sheet level in handleSelect).
     scale.value = withSpring(0.95, { stiffness: 400, damping: 18 }, () => {
       scale.value = withSpring(1, { stiffness: 300, damping: 25 });
     });
-    setTimeout(() => onSelect(option.value), 140);
+    onSelect(option.value);
   };
 
   return (
@@ -112,15 +115,26 @@ export function RatingBottomSheet({ place, onDismiss }: RatingBottomSheetProps) 
   const ratePlace   = useWanderStore((s) => s.ratePlace);
   const markVisited = useWanderStore((s) => s.markVisited);
   const updateScore = useWanderStore((s) => s.updateScore);
+  const userId      = useUserStore((s) => s.userId);
 
   const sheetY    = useSharedValue(400);
   const overlayOp = useSharedValue(0);
   const visible   = place !== null;
 
+  // Guards against tapping two rating options in quick succession (which would
+  // apply the taste-score adjustment twice). Reset each time the sheet opens.
+  const selectingRef = useRef(false);
+
   useEffect(() => {
     if (visible) {
+      selectingRef.current = false;
       overlayOp.value = withTiming(1, { duration: 240 });
       sheetY.value    = withSpring(0, { stiffness: 220, damping: 22 });
+    } else {
+      // Reset off-screen when hidden so the next open always slides in — even
+      // if the parent cleared `place` without going through animateOut.
+      overlayOp.value = 0;
+      sheetY.value    = 400;
     }
   }, [visible]);
 
@@ -131,13 +145,18 @@ export function RatingBottomSheet({ place, onDismiss }: RatingBottomSheetProps) 
   }, []);
 
   const handleSelect = useCallback((rating: UserRating) => {
-    if (!place) return;
+    if (!place || selectingRef.current) return;
+    selectingRef.current = true;
     ratePlace(place.placeId, rating);
     markVisited(place.placeId);
     updateScore(place.category, rating);
+    // Push crowd signal to Supabase — fire-and-forget, never blocks UX
+    if (userId) {
+      pushPlaceRating(userId, place.placeId, rating).catch(() => {});
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     animateOut(onDismiss);
-  }, [place, ratePlace, markVisited, updateScore, animateOut, onDismiss]);
+  }, [place, ratePlace, markVisited, updateScore, userId, animateOut, onDismiss]);
 
   const handleDismiss = useCallback(() => {
     animateOut(onDismiss);
@@ -149,9 +168,15 @@ export function RatingBottomSheet({ place, onDismiss }: RatingBottomSheetProps) 
   if (!place) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
+    >
       <Animated.View style={[styles.overlay, overlayStyle]}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={handleDismiss} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleDismiss} />
         <Animated.View style={[styles.sheet, sheetStyle]}>
           {/* Handle */}
           <View style={styles.handle} />
@@ -211,13 +236,13 @@ const styles = StyleSheet.create({
   },
   placeName: {
     fontFamily:   fontFamily.bold,
-    fontSize:     20,
+    fontSize:     19,
     color:        colors.textPrimary,
     marginBottom: 3,
   },
   headerSub: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textSecondary,
   },
   options: {
@@ -243,12 +268,12 @@ const styles = StyleSheet.create({
   optionText: { flex: 1 },
   optionLabel: {
     fontFamily:   fontFamily.semiBold,
-    fontSize:     15,
+    fontSize:     14,
     marginBottom: 2,
   },
   optionSub: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
   },
   skip: {
@@ -257,7 +282,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 });

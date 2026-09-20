@@ -16,14 +16,9 @@ import { useLocalSearchParams, router } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedReaction,
-  runOnJS,
   withSpring,
   withTiming,
-  withRepeat,
-  withSequence,
   withDelay,
-  Easing,
 } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import { isViewShotAvailable } from '@/utils/viewshot';
@@ -31,24 +26,29 @@ import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
-import { computeLifeStats, formatStatNumber } from '@/engine/statsEngine';
+import { computeLifeStats } from '@/engine/statsEngine';
 import { STAT_DEFINITIONS } from '@/data/statDefinitions';
 import { WhatIfSection } from '@/components/today/WhatIfSection';
 import { StatShareCard } from '@/components/today/StatShareCard';
+import { CountUpText } from '@/components/ui';
 import { useUserStore } from '@/store/userStore';
-import { useAllStats } from '@/hooks/useAllStats';
-import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
+import { useNumbers } from '@/hooks/useNumbers';
+import { colors, spacing, radius, fontFamily, shadow, getCategoryTheme } from '@/theme';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
 
-// ─── Category visual config ───────────────────────────────────
-const CATEGORY_META: Record<string, { color: string; bg: string; label: string }> = {
-  time:   { color: '#5B7FE8', bg: '#EEF1FD', label: 'Time'   },
-  body:   { color: '#D94F4F', bg: '#FFF0F0', label: 'Body'   },
-  habits: { color: colors.gold,     bg: colors.goldBg,   label: 'Habits' },
-  social: { color: colors.green500, bg: colors.green50,  label: 'Social' },
-};
+/** Shrink the number as digits grow so it never clips. */
+function detailFontSize(value: number, precision: number): number {
+  const len = (precision > 0
+    ? value.toFixed(precision)
+    : Math.floor(value).toLocaleString('en-US')
+  ).length;
+  if (len <= 6)  return 49;
+  if (len <= 9)  return 41;
+  if (len <= 12) return 36;
+  return 30;
+}
 
-// ─── Animated big number ──────────────────────────────────────
+// ─── Animated big number — UI thread, no JS re-renders ────────
 function AnimatedBigNumber({
   value,
   precision,
@@ -56,63 +56,34 @@ function AnimatedBigNumber({
   value:     number;
   precision: number;
 }) {
-  const [display, setDisplay] = useState('0');
-  const progress = useSharedValue(0);
-
-  const updateDisplay = (v: number) => {
-    setDisplay(formatStatNumber(v, precision));
-  };
-
-  useAnimatedReaction(
-    () => {
-      if (precision > 0) {
-        const factor = 10 ** precision;
-        return Math.round(progress.value * value * factor) / factor;
-      }
-      return Math.floor(progress.value * value);
-    },
-    (current, previous) => {
-      if (current !== previous) runOnJS(updateDisplay)(current);
-    }
+  return (
+    <CountUpText
+      value={value}
+      precision={precision}
+      duration={1600}
+      delay={300}
+      animateKey={value}
+      style={[styles.bigNumber, { fontSize: detailFontSize(value, precision) }]}
+    />
   );
-
-  useEffect(() => {
-    progress.value = withDelay(
-      300,
-      withTiming(1, { duration: 1600, easing: Easing.bezier(0.33, 1, 0.68, 1) })
-    );
-  }, [value]);
-
-  return <Text style={styles.bigNumber}>{display}</Text>;
 }
 
-// ─── Animated category icon ───────────────────────────────────
+// ─── Animated category icon (entrance only — no battery-draining idle pulse) ──
 function CategoryIconBig({ icon, category }: { icon: string; category: string }) {
-  const meta  = CATEGORY_META[category] ?? { color: colors.green700, bg: colors.green50, label: category };
+  const meta  = getCategoryTheme(category);
   const scale = useSharedValue(0.6);
-  const pulse = useSharedValue(1);
 
   useEffect(() => {
-    // Entrance
-    scale.value = withSpring(1, { stiffness: 220, damping: 20 });
-    // Idle pulse
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.12, { duration: 1800, easing: Easing.bezier(0.37, 0, 0.63, 1) }),
-        withTiming(1.00, { duration: 1800, easing: Easing.bezier(0.37, 0, 0.63, 1) })
-      ),
-      -1,
-      true
-    );
+    scale.value = withSpring(1, { stiffness: 220, damping: 16 });
   }, []);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value * pulse.value }],
+    transform: [{ scale: scale.value }],
   }));
 
   return (
     <Animated.View style={[styles.categoryIconBig, { backgroundColor: meta.bg }, style]}>
-      <Ionicons name={icon as any} size={26} color={meta.color} />
+      <Ionicons name={icon as any} size={26} color={meta.accent} />
     </Animated.View>
   );
 }
@@ -121,7 +92,7 @@ function CategoryIconBig({ icon, category }: { icon: string; category: string })
 export default function StatDetailScreen() {
   const { statId }  = useLocalSearchParams<{ statId: string }>();
   const profile      = useUserStore((s) => s.profile);
-  const { allStats } = useAllStats();
+  const { cards }    = useNumbers();
   const shareCardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -131,16 +102,18 @@ export default function StatDetailScreen() {
     ? ((lifeStats[definition.formulaKey as keyof LifeStatsOutput] as number) ?? 0)
     : 0;
 
-  const statWithStatus = allStats.find((s) => s.definition.id === statId);
-  const unlockedDate   = statWithStatus?.unlockedDate ?? null;
-  const catMeta        = definition ? (CATEGORY_META[definition.category] ?? { color: colors.green700, bg: colors.green50, label: definition.category }) : null;
+  const thisCard     = cards.find((c) => c.definition.id === statId);
+  const unlockedDate = thisCard?.openedOn ?? null;
+  const catMeta      = definition ? getCategoryTheme(definition.category) : null;
 
-  // Related stats — same category, unlocked, not this one
-  const relatedStats = allStats
-    .filter((s) =>
-      s.definition.id !== statId &&
-      s.definition.category === definition?.category &&
-      s.status !== 'locked'
+  // Related numbers — same category, already opened, excluding this one.
+  // Only opened ones: linking to a sealed number from here would let a user
+  // read a figure they have not spent a key on.
+  const relatedStats = cards
+    .filter((c) =>
+      c.definition.id !== statId &&
+      c.definition.category === definition?.category &&
+      c.unlocked
     )
     .slice(0, 3);
 
@@ -183,7 +156,7 @@ export default function StatDetailScreen() {
       const uri = await captureRef(shareCardRef, { format: 'png', quality: 1 });
       await Sharing.shareAsync(uri, {
         mimeType: 'image/png',
-        dialogTitle: `${definition?.title ?? 'Stat'} — Gati`,
+        dialogTitle: `${definition?.title ?? 'Stat'} | Gati`,
       });
     } catch (_) {
       // User dismissed share sheet — no error
@@ -241,9 +214,9 @@ export default function StatDetailScreen() {
               <Ionicons
                 name={definition.icon as any}
                 size={12}
-                color={catMeta?.color}
+                color={catMeta?.accent}
               />
-              <Text style={[styles.categoryBadgeText, { color: catMeta?.color }]}>
+              <Text style={[styles.categoryBadgeText, { color: catMeta?.accent }]}>
                 {catMeta?.label}
               </Text>
             </View>
@@ -345,7 +318,7 @@ export default function StatDetailScreen() {
                   <Ionicons
                     name={s.definition.icon as any}
                     size={16}
-                    color={catMeta?.color}
+                    color={catMeta?.accent}
                   />
                 </View>
                 <Text style={styles.relatedTitle} numberOfLines={1}>
@@ -389,7 +362,7 @@ const styles = StyleSheet.create({
   },
   backLabel: {
     fontFamily: fontFamily.medium,
-    fontSize:   15,
+    fontSize:   14,
     color:      colors.textPrimary,
   },
 
@@ -427,13 +400,13 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: {
     fontFamily:    fontFamily.semiBold,
-    fontSize:      11,
+    fontSize:      10.5,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   unlockDate: {
     fontFamily: fontFamily.regular,
-    fontSize:   12,
+    fontSize:   11.5,
     color:      colors.textMuted,
   },
   heroCenter: {
@@ -451,20 +424,20 @@ const styles = StyleSheet.create({
   },
   bigNumber: {
     fontFamily:    fontFamily.extraBold,
-    fontSize:      52,
+    fontSize:      49,
     color:         colors.textPrimary,
     letterSpacing: -2,
-    lineHeight:    56,
+    lineHeight:    52.5,
     textAlign:     'center',
   },
   unitLabel: {
     fontFamily: fontFamily.medium,
-    fontSize:   15,
+    fontSize:   14,
     color:      colors.textSecondary,
   },
   statTitle: {
     fontFamily:    fontFamily.bold,
-    fontSize:      20,
+    fontSize:      19,
     color:         colors.textPrimary,
     letterSpacing: -0.3,
     textAlign:     'center',
@@ -488,16 +461,16 @@ const styles = StyleSheet.create({
   },
   cardHeaderText: {
     fontFamily:    fontFamily.semiBold,
-    fontSize:      12,
+    fontSize:      11.5,
     color:         colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   descriptionText: {
     fontFamily: fontFamily.regular,
-    fontSize:   15,
+    fontSize:   14,
     color:      colors.textPrimary,
-    lineHeight: 23,
+    lineHeight: 21.5,
   },
 
   // ── Fact block ──
@@ -515,16 +488,16 @@ const styles = StyleSheet.create({
   },
   factLabel: {
     fontFamily:    fontFamily.semiBold,
-    fontSize:      12,
+    fontSize:      11.5,
     color:         colors.green700,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   factText: {
     fontFamily: fontFamily.regular,
-    fontSize:   13,
+    fontSize:   12,
     color:      colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 19,
   },
 
   // ── Share button ──
@@ -549,7 +522,7 @@ const styles = StyleSheet.create({
   },
   shareBtnText: {
     fontFamily:    fontFamily.bold,
-    fontSize:      16,
+    fontSize:      15,
     color:         colors.white,
     letterSpacing: 0.2,
   },
@@ -581,7 +554,7 @@ const styles = StyleSheet.create({
   relatedTitle: {
     flex:       1,
     fontFamily: fontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   13,
     color:      colors.textPrimary,
   },
 
@@ -594,7 +567,7 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     fontFamily: fontFamily.medium,
-    fontSize:   16,
+    fontSize:   15,
     color:      colors.textMuted,
   },
 });
