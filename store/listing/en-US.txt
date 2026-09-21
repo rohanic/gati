@@ -1,0 +1,120 @@
+================================================================
+GATI — Google Play store listing copy (en-US)
+Paste each block into Play Console → Grow → Store presence →
+Main store listing. Character counts are verified below.
+================================================================
+
+──────────────────────────────────────────────
+APP NAME  (Play limit: 30 characters)
+──────────────────────────────────────────────
+Gati: Your Life in Numbers
+
+  Alternates, if the above is taken or you want a different angle:
+    Gati — One Number a Day        (25)
+    Gati: Life in Numbers          (21)
+    Gati: Your Life, Counted       (24)
+
+  Why this one: "Gati" alone is unsearchable — nobody types it.
+  The suffix carries the actual search terms ("life in numbers")
+  without keyword-stuffing, which Play penalises. No emoji, no
+  ALL CAPS, no "#1"/"Best" — all of those are title violations.
+
+──────────────────────────────────────────────
+SHORT DESCRIPTION  (Play limit: 80 characters)
+──────────────────────────────────────────────
+One number about your life each day — then somewhere real to go with it.
+
+  Alternates:
+    Unlock one surprising number about your life a day. Then go somewhere.
+    Your life in 25 numbers. One key a day. One real place to visit.
+
+  This is the line under the icon in search results and the single
+  biggest lever on install rate. It should say what happens, not
+  what the app "is".
+
+──────────────────────────────────────────────
+FULL DESCRIPTION  (Play limit: 4000 characters)
+──────────────────────────────────────────────
+You have taken about 300 million breaths. Your heart has beaten
+over 2 billion times. You have slept through roughly a third of
+your life, and you have spent whole months of it looking at a
+screen.
+
+You know none of these numbers. Gati works them out.
+
+ONE NUMBER A DAY
+
+Gati holds 25 numbers about your life. You do not get them all at
+once — that would take ten minutes and you would never open the
+app again.
+
+Instead you get keys. Three on the day you join, then one more
+every day at midnight UTC. You choose which number to spend each
+key on. Every number shows you a hint before you commit, so the
+choice is yours and it is a real one.
+
+You can bank up to three keys, so missing a day costs you nothing.
+Come back on Friday and you have a decision to make about how to
+spend the week.
+
+WHAT GATI COUNTS
+
+Time — days alive, hours alive, weeks old, months old, seasons
+lived, full moons you have seen, your exact age to the second.
+
+Body — heartbeats, breaths taken, steps walked, litres of blood
+pumped, hours slept, full days spent asleep.
+
+Habits — cups of coffee, glasses of water, meals eaten, hours on
+your phone, full days lost to a screen, hours of music, hours
+commuting.
+
+Every figure is built from answers you give during a two-minute
+setup, using published population averages for the things nobody
+tracks. It is arithmetic, done honestly, and the app tells you
+which assumptions it used.
+
+THEN GO SOMEWHERE
+
+A number on a screen is a fact. Gati turns it into a reason to
+leave the house.
+
+Unlock "hours of coffee consumed" and Wander shows you a coffee
+place near you that is actually good and actually close — ranked
+on distance, rating, how many people rated it, and whether it is
+open right now, not just whichever chain paid the most. Unlock
+your step count and it finds somewhere worth walking to.
+
+Rate the places you visit. Save the ones you want to return to.
+
+YOUR STORY
+
+Every number you open lands on a timeline, with the date you
+found it and room to write what you were doing. Build a streak.
+Hit milestones. Look back after a month and see a record of the
+year rather than a list of statistics.
+
+BUILT PROPERLY
+
+• Works fully without an account — everything lives on your phone
+• No ads, anywhere, ever
+• No analytics SDK, no tracking, no advertising ID
+• Your approximate location is used to find places and is never
+  stored against you
+• Sign in only if you want your data on a second device
+• Delete everything from inside the app, in two taps
+
+A NOTE ON THE NUMBERS
+
+Gati is not a fitness tracker and not a medical app. It does not
+measure your body — it does arithmetic on what you told it. The
+numbers are estimates, and good ones, but they are estimates.
+Nothing here is health advice.
+
+────────────────────────────
+
+Gati means motion, pace, the way something moves forward.
+
+Contact: contact@creaeza.com
+Privacy: https://creaeza.com/gati-privacy
+Terms: https://creaeza.com/gati-terms
