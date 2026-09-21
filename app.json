@@ -14,7 +14,7 @@
       "assets/**/*"
     ],
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "android": {
       "package": "com.gati.app",
@@ -119,6 +119,11 @@
     },
     "platforms": [
       "android"
-    ]
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/80e87738-b4f3-4a78-b517-b632ce43b1f3",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    }
   }
 }
