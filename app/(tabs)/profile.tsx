@@ -53,7 +53,10 @@ import { useStoryStore } from '@/store/storyStore';
 import { useAuthStore }  from '@/store/authStore';
 import { computeBestStreakFromRanges } from '@/hooks/useStreak';
 import { refreshNotificationsOnOpen } from '@/services/notifications';
-import { PRIVACY_POLICY_URL, TERMS_URL, SUPPORT_EMAIL } from '@/config';
+import {
+  PRIVACY_POLICY_URL, TERMS_URL, SUPPORT_EMAIL,
+  PLAY_STORE_URL, ACCOUNT_DELETION_URL,
+} from '@/config';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { ExerciseFrequency, InterestCategory } from '@/types';
 
@@ -1134,8 +1137,11 @@ export default function ProfileScreen() {
               // Personalize with the user's own daysAlive if available
               const days = daysAlive > 0 ? daysAlive.toLocaleString() : null;
               const message = days
-                ? `I've been alive ${days} days. Gati showed me that.\n\nYour number is waiting — what's yours?\nhttps://gati.app`
-                : `I've been tracking my life with Gati — days alive, heartbeats, steps, coffee cups. The numbers are bigger than you'd expect.\n\nhttps://gati.app`;
+                // Links to the Play listing, not a marketing domain: a share is
+                // the app's only organic growth surface, and gati.app does not
+                // resolve. This is the one link that must always work.
+                ? `I've been alive ${days} days. Gati showed me that.\n\nYour number is waiting — what's yours?\n${PLAY_STORE_URL}`
+                : `I've been tracking my life with Gati — days alive, heartbeats, steps, coffee cups. The numbers are bigger than you'd expect.\n\n${PLAY_STORE_URL}`;
               Share.share({ message, title: 'Gati — Your Life in Numbers' }).catch(() => {});
             }}
             delay={500}
@@ -1166,6 +1172,15 @@ export default function ProfileScreen() {
             label="Terms of service"
             onPress={() => { Linking.openURL(TERMS_URL).catch(() => {}); }}
             delay={560}
+          />
+          <View style={styles.rowDivider} />
+          {/* Same page submitted to Play as the Data safety deletion URL, so
+              the in-app route and the store's published route cannot drift. */}
+          <SettingRow
+            icon="trash-bin-outline"
+            label="How to delete your data"
+            onPress={() => { Linking.openURL(ACCOUNT_DELETION_URL).catch(() => {}); }}
+            delay={570}
           />
         </SectionCard>
 

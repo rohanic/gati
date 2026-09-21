@@ -5,7 +5,7 @@
 These terms govern your use of Gati, an Android app made by Rohan Ahmad. By
 installing or using it, you agree to them.
 
-Contact: **support@gati.app**
+Contact: **contact@creaeza.com**
 
 ---
 
@@ -127,4 +127,4 @@ protection rights you have where you live.
 
 ---
 
-Questions: **support@gati.app**
+Questions: **contact@creaeza.com**

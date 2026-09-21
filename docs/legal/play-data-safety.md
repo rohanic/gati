@@ -18,7 +18,7 @@ Expo push, Google Play Billing).
 ## Do you provide a way for users to request that their data be deleted?
 
 **Yes** — in-app at Profile → Delete account (`delete-account` edge function),
-plus `support@gati.app`.
+plus `contact@creaeza.com`.
 
 Deletion URL for the listing: your privacy-policy page, which documents the
 in-app route.

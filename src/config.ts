@@ -66,17 +66,29 @@ export const IS_FREE_LAUNCH = LAUNCH_MODE === 'free';
  * review rejection.
  */
 export const PRIVACY_POLICY_URL: string =
-  process.env.EXPO_PUBLIC_PRIVACY_URL ?? 'https://gati.app/privacy';
+  process.env.EXPO_PUBLIC_PRIVACY_URL ?? 'https://creaeza.com/gati-privacy';
 
 export const TERMS_URL: string =
-  process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://gati.app/terms';
+  process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://creaeza.com/gati-terms';
 
 /** Shown in Profile → Help. Use a role address, never a personal inbox. */
 export const SUPPORT_EMAIL: string =
-  process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'support@gati.app';
+  process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'contact@creaeza.com';
 
 /** Play Store listing, used by the "Rate Gati" action. */
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.gati.app';
+
+/** Public summary of the Play Data Safety declaration. */
+export const DATA_SAFETY_URL: string =
+  process.env.EXPO_PUBLIC_DATA_SAFETY_URL ?? 'https://creaeza.com/gati-data-safety';
+
+/**
+ * Account + data deletion instructions.
+ * Submitted to Play Console as the Data safety deletion URL, and linked from
+ * Profile so the in-app and store routes agree.
+ */
+export const ACCOUNT_DELETION_URL: string =
+  process.env.EXPO_PUBLIC_DELETION_URL ?? 'https://creaeza.com/gati-account-deletion';
 
 /** Play's subscription centre, used as a fallback for managing a subscription. */
 export const PLAY_SUBSCRIPTIONS_URL =

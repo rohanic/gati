@@ -47,6 +47,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { PLAY_STORE_URL } from '@/config';
 import type { MilestoneDef } from '@/engine/milestoneEngine';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -268,7 +269,7 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
       // Append a consistent CTA so recipients have a path to the app.
       // The shareText is written as a standalone line — the CTA is a
       // second paragraph so it works in iMessage, Twitter, WhatsApp, etc.
-      const message = `${milestone.shareText}\n\nMy life, in numbers — https://gati.app`;
+      const message = `${milestone.shareText}\n\nMy life, in numbers — ${PLAY_STORE_URL}`;
       await Share.share({ message, title: milestone.title });
     } catch {
       // share cancelled or not supported

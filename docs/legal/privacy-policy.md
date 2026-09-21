@@ -6,7 +6,7 @@ Gati is made by Rohan Ahmad. This policy explains exactly what the app collects,
 why, and what it never does. It was written against the source code, not from a
 template — every claim below corresponds to something you can verify in the app.
 
-Contact: **support@gati.app**
+Contact: **contact@creaeza.com**
 
 ---
 
@@ -110,7 +110,7 @@ Store first, or you will continue to be billed.
 
 Anything still held on your phone is removed by uninstalling the app.
 
-If you cannot access the app, email **support@gati.app** from the address on
+If you cannot access the app, email **contact@creaeza.com** from the address on
 your account and we will delete it for you.
 
 ---
@@ -143,7 +143,7 @@ or delete your data, and to withdraw consent.
 - **Export** — Profile → Export your data
 - **Delete** — Profile → Delete account
 
-For anything else, email **support@gati.app**.
+For anything else, email **contact@creaeza.com**.
 
 ---
 

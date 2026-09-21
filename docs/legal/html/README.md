@@ -5,10 +5,10 @@ drop-in: paste the whole file into an Elementor **HTML** widget.
 
 | File | Suggested page | Used by |
 |---|---|---|
-| `privacy-policy.html` | `/privacy-policy` | Play listing (required), app Profile, paywall |
-| `terms-of-service.html` | `/terms-of-service` | App Profile, paywall |
-| `data-safety.html` | `/data-safety` | Public summary of the Play declaration |
-| `account-deletion.html` | `/account-deletion` | **Play Console → Data safety → Account deletion URL** |
+| `privacy-policy.html` | `/gati-privacy` | Play listing (required), app Profile, paywall |
+| `terms-of-service.html` | `/gati-terms` | App Profile, paywall |
+| `data-safety.html` | `/gati-data-safety` | Public summary of the Play declaration |
+| `account-deletion.html` | `/gati-account-deletion` | **Play Console → Data safety → Account deletion URL** |
 
 ## How they are isolated from the theme
 
@@ -36,15 +36,20 @@ Nothing leaks **out** either: no rule here matches anything outside `.gati-doc`.
 
 ## Before publishing
 
-1. **Check the internal links.** Each page links to the others with root-relative
-   paths (`/privacy-policy`, `/terms-of-service`, `/account-deletion`). Update
-   them if your slugs differ.
-2. **`support@gati.app` must be a real inbox** — Play checks the deletion route.
+1. **Internal links** already use the creaeza.com slugs as root-relative paths
+   (`/gati-privacy`, `/gati-terms`, `/gati-data-safety`,
+   `/gati-account-deletion`). They resolve correctly as long as all four pages
+   live on creaeza.com at those slugs.
+2. **`contact@creaeza.com` must be a real inbox** — Play checks the deletion route.
 3. Once live, point the app at them:
    ```
-   EXPO_PUBLIC_PRIVACY_URL=https://yourdomain.com/privacy-policy
-   EXPO_PUBLIC_TERMS_URL=https://yourdomain.com/terms-of-service
+   EXPO_PUBLIC_PRIVACY_URL=https://creaeza.com/gati-privacy
+   EXPO_PUBLIC_TERMS_URL=https://creaeza.com/gati-terms
+   EXPO_PUBLIC_DATA_SAFETY_URL=https://creaeza.com/gati-data-safety
+   EXPO_PUBLIC_DELETION_URL=https://creaeza.com/gati-account-deletion
    ```
+   These are already the defaults in `src/config.ts` and `eas.json`, so a build
+   picks them up with no further change.
 4. The account-deletion page **must be reachable without logging in**. Do not
    put it behind a members-only area.
 

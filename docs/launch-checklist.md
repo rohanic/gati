@@ -78,8 +78,8 @@ must be considered compromised. Then delete
 Checked over the network — all three fail to resolve:
 
 ```
-https://gati.app/privacy   ❌ unreachable
-https://gati.app/terms     ❌ unreachable
+https://creaeza.com/gati-privacy   ❌ unreachable
+https://creaeza.com/gati-terms     ❌ unreachable
 https://gati.app           ❌ unreachable
 ```
 
@@ -100,7 +100,7 @@ EXPO_PUBLIC_PRIVACY_URL=https://<user>.github.io/gati/privacy
 EXPO_PUBLIC_TERMS_URL=https://<user>.github.io/gati/terms
 ```
 
-`SUPPORT_EMAIL` is still `support@gati.app` — must be a real inbox.
+`SUPPORT_EMAIL` is still `contact@creaeza.com` — must be a real inbox.
 
 ### 5. ~~Product IDs do not match the console~~ — RESOLVED IN CODE
 

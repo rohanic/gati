@@ -7,9 +7,11 @@
     "base": {
       "node": "20.19.4",
       "env": {
-        "EXPO_PUBLIC_PRIVACY_URL": "https://gati.app/privacy",
-        "EXPO_PUBLIC_TERMS_URL": "https://gati.app/terms",
-        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@gati.app"
+        "EXPO_PUBLIC_PRIVACY_URL": "https://creaeza.com/gati-privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://creaeza.com/gati-terms",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "contact@creaeza.com",
+        "EXPO_PUBLIC_DATA_SAFETY_URL": "https://creaeza.com/gati-data-safety",
+        "EXPO_PUBLIC_DELETION_URL": "https://creaeza.com/gati-account-deletion"
       }
     },
     "development": {
