@@ -49,14 +49,54 @@ import { useUserStore } from '@/store/userStore';
 const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
 
 // ─── Product IDs ──────────────────────────────────────────────
-export const PRODUCT_IDS = {
-  monthly: 'gati_pro_monthly',
-  annual:  'gati_pro_annual',
+/**
+ * Subscription SKUs, resolved against the store at runtime.
+ *
+ * A mismatch between the ID in code and the ID in Play Console is silent and
+ * fatal: `fetchProducts` simply returns an empty array, so the paywall shows no
+ * price and the button does nothing. There is no error to read.
+ *
+ * Rather than hard-coding one guess, we ask the store about every plausible ID
+ * and keep whichever it actually recognises. Play ignores unknown SKUs instead
+ * of failing the request, so asking for four costs nothing.
+ *
+ * Override explicitly once the console naming is settled:
+ *   EXPO_PUBLIC_SKU_MONTHLY=pro_monthly
+ *   EXPO_PUBLIC_SKU_ANNUAL=pro_annual
+ */
+const ENV_MONTHLY = process.env.EXPO_PUBLIC_SKU_MONTHLY;
+const ENV_ANNUAL  = process.env.EXPO_PUBLIC_SKU_ANNUAL;
+
+/** Every SKU worth asking about, most-likely first. */
+export const CANDIDATE_SKUS = {
+  monthly: [ENV_MONTHLY, 'gati_pro_monthly', 'pro_monthly'].filter(Boolean) as string[],
+  annual:  [ENV_ANNUAL,  'gati_pro_annual',  'pro_annual' ].filter(Boolean) as string[],
 } as const;
 
-export type ProductId = (typeof PRODUCT_IDS)[keyof typeof PRODUCT_IDS];
+export const ALL_CANDIDATE_SKUS: string[] = [
+  ...new Set([...CANDIDATE_SKUS.monthly, ...CANDIDATE_SKUS.annual]),
+];
 
-export const ALL_PRODUCT_IDS: ProductId[] = [PRODUCT_IDS.monthly, PRODUCT_IDS.annual];
+export type Plan = 'monthly' | 'annual';
+
+/** Whatever the store confirmed, filled in by `getSubscriptions()`. */
+const resolvedSku: Record<Plan, string | null> = { monthly: null, annual: null };
+
+/** The confirmed SKU for a plan, or null until the store has answered. */
+export function getResolvedSku(plan: Plan): string | null {
+  return resolvedSku[plan];
+}
+
+/**
+ * Back-compat shim. Prefer `getResolvedSku`, which reflects what the store
+ * actually has rather than what we hoped it had.
+ */
+export const PRODUCT_IDS = {
+  get monthly() { return resolvedSku.monthly ?? CANDIDATE_SKUS.monthly[0]; },
+  get annual()  { return resolvedSku.annual  ?? CANDIDATE_SKUS.annual[0];  },
+};
+
+export type ProductId = string;
 
 /** Thrown when the user dismissed the store sheet. Callers treat it as a no-op. */
 export class PurchaseCancelledError extends Error {
@@ -126,8 +166,35 @@ export async function destroyIAP(): Promise<void> {
 export async function getSubscriptions(): Promise<ProductSubscription[]> {
   if (!(await initIAP())) return [];
   try {
-    const result = await fetchProducts({ skus: ALL_PRODUCT_IDS, type: 'subs' });
-    return (result ?? []) as ProductSubscription[];
+    const result = (await fetchProducts({
+      skus: ALL_CANDIDATE_SKUS,
+      type: 'subs',
+    })) as ProductSubscription[] | null;
+
+    const products = result ?? [];
+
+    // Record which naming the console actually uses, so purchase and restore
+    // ask for the same thing the price came from.
+    for (const plan of ['monthly', 'annual'] as Plan[]) {
+      const match = CANDIDATE_SKUS[plan].find((sku) => products.some((p) => p.id === sku));
+      if (match) resolvedSku[plan] = match;
+    }
+
+    if (__DEV__) {
+      const missing = (['monthly', 'annual'] as Plan[]).filter((p) => !resolvedSku[p]);
+      if (missing.length > 0) {
+        console.warn(
+          `[purchase] Play returned no product for: ${missing.join(', ')}.\n` +
+          `  Asked for: ${ALL_CANDIDATE_SKUS.join(', ')}\n` +
+          `  Got back:  ${products.map((p) => p.id).join(', ') || '(nothing)'}\n` +
+          '  Check the product IDs in Play Console, that the subscription is ' +
+          'ACTIVE, that the app is published to a test track, and that this ' +
+          'account is a licence tester.',
+        );
+      }
+    }
+
+    return products;
   } catch {
     return [];
   }
@@ -268,8 +335,19 @@ export async function purchaseSubscription(productId: ProductId): Promise<Verify
   purchaseInFlight = true;
 
   // Android needs the offer token that belongs to the SKU being bought.
-  const subs = await getSubscriptions();
-  const target = subs.find((s) => s.id === productId);
+  // Resolve against the store first — `productId` may be the placeholder
+  // default if nothing has queried the store yet in this session.
+  const subs   = await getSubscriptions();
+  const target = subs.find((s) => s.id === productId)
+              ?? subs.find((s) => CANDIDATE_SKUS.monthly.includes(s.id) && CANDIDATE_SKUS.monthly.includes(productId))
+              ?? subs.find((s) => CANDIDATE_SKUS.annual.includes(s.id)  && CANDIDATE_SKUS.annual.includes(productId));
+
+  if (!target) {
+    throw new BillingUnavailableError(
+      'This plan is not available from the store right now. Please try again later.',
+    );
+  }
+  const sku        = target.id;
   const offerToken = androidOfferToken(target);
 
   return new Promise<VerifyResult>((resolve, reject) => {
@@ -285,7 +363,7 @@ export async function purchaseSubscription(productId: ProductId): Promise<Verify
 
     const updateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
       // Ignore events for other SKUs (e.g. a queued transaction replaying).
-      if (purchase.productId !== productId) return;
+      if (purchase.productId !== sku) return;
       try {
         const result = await completePurchase(purchase);
         cleanup();
@@ -305,11 +383,11 @@ export async function purchaseSubscription(productId: ProductId): Promise<Verify
     requestPurchase({
       type: 'subs',
       request: {
-        apple:  { sku: productId },
+        apple:  { sku },
         google: {
-          skus: [productId],
+          skus: [sku],
           ...(offerToken
-            ? { subscriptionOffers: [{ sku: productId, offerToken }] }
+            ? { subscriptionOffers: [{ sku, offerToken }] }
             : {}),
         },
       },
@@ -369,7 +447,7 @@ export async function restorePurchases(): Promise<boolean> {
 
   const purchases = await getAvailablePurchases();
   const subscriptions = (purchases ?? []).filter((p) =>
-    (ALL_PRODUCT_IDS as string[]).includes(p.productId),
+    ALL_CANDIDATE_SKUS.includes(p.productId),
   );
 
   if (subscriptions.length === 0) {
@@ -414,7 +492,7 @@ export async function syncEntitlement(): Promise<void> {
   try {
     const purchases = await getAvailablePurchases();
     const active = (purchases ?? []).filter((p) =>
-      (ALL_PRODUCT_IDS as string[]).includes(p.productId),
+      ALL_CANDIDATE_SKUS.includes(p.productId),
     );
 
     if (active.length > 0) {

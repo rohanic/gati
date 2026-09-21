@@ -10,7 +10,7 @@
  * NO emoji. NO purple. NO orange.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,6 +19,20 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+/**
+ * Remote photos render through `expo-image`, not React Native's `<Image>`.
+ *
+ * Play Console flagged this build for "manually downloading and decoding
+ * images from the network" — those stack frames
+ * (`com.facebook.imagepipeline` → `BitmapFactory.decodeStream`) are RN's own
+ * Fresco pipeline, which decodes Google Place photos at full resolution with
+ * no downsampling and no memory ceiling. On a list of cards that is a real
+ * OOM risk on low-memory devices.
+ *
+ * expo-image downsamples to the target size, keeps a disk + memory cache, and
+ * evicts under pressure.
+ */
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
@@ -163,9 +177,14 @@ function PlaceThumbnail({ place }: { place: WanderPlace }) {
       {hasPhoto && (
         <Animated.View style={[StyleSheet.absoluteFill, imgStyle]}>
           <Image
-            source={{ uri: place.thumbnailUrl! }}
+            source={place.thumbnailUrl!}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            contentFit="cover"
+            // Thumbnails are ~160px tall on screen; decoding the full 480px
+            // asset for every card is what the memory warning was about.
+            recyclingKey={place.placeId}
+            cachePolicy="memory-disk"
+            transition={0}
             onLoad={() => {
               imgOp.value = withTiming(1, { duration: 300 });
             }}

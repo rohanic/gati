@@ -28,7 +28,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const PACKAGE_NAME = 'com.gati.app';
-const PRODUCT_IDS  = ['gati_pro_monthly', 'gati_pro_annual'];
+/**
+ * Accepted subscription SKUs.
+ *
+ * Both namings are allowed because the client resolves the real ID against
+ * Play at runtime — rejecting the one the console actually uses would turn a
+ * successful payment into a failed verification, which is the worst possible
+ * outcome (charged, then errored).
+ *
+ * Narrow this to the single confirmed ID once the console naming is settled.
+ */
+const PRODUCT_IDS = [
+  'gati_pro_monthly', 'gati_pro_annual',
+  'pro_monthly',      'pro_annual',
+];
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 

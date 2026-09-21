@@ -17,7 +17,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -35,6 +34,8 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+// See PlaceCard for why remote photos use expo-image.
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { googleMapsUrl } from '@/services/placesService';
@@ -84,9 +85,12 @@ function HeroBanner({
       {hasPhoto && (
         <Animated.View style={[StyleSheet.absoluteFill, imgStyle]}>
           <Image
-            source={{ uri: place.thumbnailUrl! }}
+            source={place.thumbnailUrl!}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            contentFit="cover"
+            recyclingKey={place.placeId}
+            cachePolicy="memory-disk"
+            transition={0}
             onLoad={() => { imgOp.value = withTiming(1, { duration: 320 }); }}
             onError={() => setFailed(true)}
           />
