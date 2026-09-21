@@ -13,7 +13,7 @@
  * "pick today's number" is not a decision, it is a shrug.
  */
 import React, { memo, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,6 +26,7 @@ import { CountUpText } from '@/components/ui';
 import { getCategoryTheme } from '@/theme';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { NumberCard } from '@/hooks/useNumbers';
+import { Text } from '@/components/ui/Text';
 
 interface NumberTileProps {
   card:      NumberCard;

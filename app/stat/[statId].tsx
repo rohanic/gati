@@ -16,7 +16,6 @@
 import React, { useEffect } from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -38,6 +37,7 @@ import { useUserStore } from '@/store/userStore';
 import { STAT_DEFINITIONS } from '@/data/statDefinitions';
 import { computeLifeStats, formatStatNumber } from '@/engine/statsEngine';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
+import { Text } from '@/components/ui/Text';
 
 // ─── Hero strip ─────────────────────────────────────────────────────
 function HeroStrip({

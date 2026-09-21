@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Pressable,
-  Text,
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
@@ -14,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, fontFamily, radius, spacing } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Types ───────────────────────────────────────────────────
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';

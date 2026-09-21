@@ -4,7 +4,7 @@
  * Active pill springs in with scale bounce.
  */
 import React, { useEffect } from 'react';
-import { ScrollView, Pressable, Text, View, StyleSheet } from 'react-native';
+import { ScrollView, Pressable, View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,6 +14,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontFamily, categoryTheme } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 export type CategoryKey = 'all' | 'time' | 'body' | 'habits' | 'social';
 

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -145,7 +145,7 @@ function TabIcon({
       </Animated.View>
 
       {/* Text label — always visible, color animates */}
-      <Animated.Text style={[styles.tabLabel, labelStyle]}>
+      <Animated.Text style={[styles.tabLabel, labelStyle]} maxFontSizeMultiplier={1.2}>
         {tab.label}
       </Animated.Text>
     </Pressable>

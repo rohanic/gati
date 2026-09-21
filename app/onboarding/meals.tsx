@@ -3,7 +3,7 @@
  * 2×2 grid of option cards + WowFact lifetime insight strip.
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -20,6 +20,7 @@ import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { WowFact } from '@/components/onboarding/WowFact';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 const OPTIONS = [
   { value: 1, label: '1 meal',   sub: 'One big meal a day',    icon: 'sunny-outline'        },

@@ -9,8 +9,9 @@
  *   </ErrorBoundary>
  */
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, radius } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 interface Props   { children: React.ReactNode }
 interface State   { hasError: boolean; message: string }

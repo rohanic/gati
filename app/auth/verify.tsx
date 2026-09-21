@@ -7,7 +7,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   TextInput,
   Pressable,
   StyleSheet,
@@ -21,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // Supabase email OTP is 6 digits by default (Auth → Email → OTP length).
 // This MUST match the project setting or auto-verify never fires and the

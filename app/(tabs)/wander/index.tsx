@@ -16,7 +16,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -54,6 +53,7 @@ import {
 } from '@/engine/statPlaceBridge';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { WanderPlace } from '@/types';
+import { Text } from '@/components/ui/Text';
 
 // ─── Section header ──────────────────────────────────────────────
 function SectionHeader({

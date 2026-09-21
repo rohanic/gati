@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -14,6 +14,7 @@ import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { InterestCategory } from '@/types';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Interest definitions ──────────────────────────────────────
 const INTERESTS: { key: InterestCategory; label: string; icon: string }[] = [

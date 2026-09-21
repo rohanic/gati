@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -21,6 +20,7 @@ import { differenceInDays, format } from 'date-fns';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Picker data ──────────────────────────────────────────────
 const MONTHS = [

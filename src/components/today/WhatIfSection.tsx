@@ -22,7 +22,7 @@
  *    onPressIn/Out), so they respond instantly.
  */
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -40,6 +40,7 @@ import { WHAT_IF_SCENARIOS } from '@/data/statDefinitions';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
 import type { UserProfile } from '@/types';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface WhatIfSectionProps {

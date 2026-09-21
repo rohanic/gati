@@ -9,7 +9,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
-  Text,
   Modal,
   TextInput,
   Pressable,
@@ -28,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { StoryAnnotation } from '@/store/storyStore';
+import { Text } from '@/components/ui/Text';
 
 const MAX_CHARS = 140;
 

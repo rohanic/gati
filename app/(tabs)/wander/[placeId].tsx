@@ -16,7 +16,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -44,6 +43,7 @@ import { useWanderStore, FREE_SAVE_LIMIT } from '@/store/userStore';
 import { getCategoryMeta } from '@/components/wander';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
+import { Text } from '@/components/ui/Text';
 
 // ─── Hero banner ─────────────────────────────────────────────────
 // Full-width banner at the top of the detail screen.

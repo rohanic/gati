@@ -10,7 +10,7 @@
  * NO emoji. NO purple. NO orange.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -42,6 +42,7 @@ import { useWanderStore } from '@/store/userStore';
 import { useAccess } from '@/hooks/useAccess';
 import { supabase } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Text } from '@/components/ui/Text';
 
 // ─── AI blurb cache — in-memory Map backed by AsyncStorage ──────────────────
 // Blurbs are expensive (one GPT-4o-mini call each), so they must survive cold

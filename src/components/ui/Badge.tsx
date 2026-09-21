@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { colors, fontFamily, radius, spacing } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 type BadgeVariant = 'streak' | 'green' | 'gold' | 'muted';
 

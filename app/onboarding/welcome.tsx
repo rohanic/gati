@@ -8,7 +8,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   Image,
@@ -26,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 export default function WelcomeScreen() {
   const { width, height } = useWindowDimensions();
@@ -144,15 +144,13 @@ export default function WelcomeScreen() {
               paddingBottom: WORD_SIZE * 0.08,
               marginBottom:  TAG_GAP,
             },
-          ]}
-        >
+          ]} maxFontSizeMultiplier={1.4}>
           gati
         </Animated.Text>
 
         {/* Tagline */}
         <Animated.Text
-          style={[styles.tagline, taglineStyle, { fontSize: TAG_SIZE }]}
-        >
+          style={[styles.tagline, taglineStyle, { fontSize: TAG_SIZE }]} maxFontSizeMultiplier={1.4}>
           Your life, in numbers.
         </Animated.Text>
 

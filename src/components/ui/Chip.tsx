@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
+import { StyleSheet, Pressable, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,6 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, fontFamily, radius, spacing } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 interface ChipProps {
   label:       string;

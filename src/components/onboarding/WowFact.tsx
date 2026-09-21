@@ -7,7 +7,7 @@
  * Springs on every value change so the number feels alive.
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 interface WowFactProps {
   icon:     string;
@@ -68,7 +69,7 @@ export function WowFact({ icon, figure, label, punch, delay = 420 }: WowFactProp
       </View>
       <View style={styles.textCol}>
         <View style={styles.figureRow}>
-          <Animated.Text style={[styles.figure, figureStyle]}>{figure}</Animated.Text>
+          <Animated.Text style={[styles.figure, figureStyle]} maxFontSizeMultiplier={1.3}>{figure}</Animated.Text>
           <Text style={styles.label}> {label}</Text>
         </View>
         {punch ? <Text style={styles.punch}>{punch}</Text> : null}

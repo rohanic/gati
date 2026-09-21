@@ -15,8 +15,13 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Pressable,
-  RefreshControl, AppState, type AppStateStatus,
+  View,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  RefreshControl,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -49,6 +54,7 @@ import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
 import { scorePlace } from '@/engine/wanderEngine';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
+import { Text } from '@/components/ui/Text';
 
 // ─── Greeting ─────────────────────────────────────────────────
 function getGreeting(): string {

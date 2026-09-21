@@ -20,7 +20,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   Linking,
@@ -36,6 +35,7 @@ import * as Haptics from 'expo-haptics';
 import { useWanderStore } from '@/store/userStore';
 import { getCategoryMeta } from '@/components/wander';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Shared HTML head (Leaflet CSS + JS) ────────────────────────
 const MAP_HEAD = `

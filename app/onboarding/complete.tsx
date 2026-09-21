@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useUserStore } from '@/store/userStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Confetti particle ─────────────────────────────────────────
 function Particle({
@@ -185,7 +186,7 @@ export default function CompleteScreen() {
         <Text style={styles.nameText}>{firstName || 'explorer'}</Text>
       </Animated.View>
 
-      <Animated.Text style={[styles.subtitle, subStyle]}>
+      <Animated.Text style={[styles.subtitle, subStyle]} maxFontSizeMultiplier={1.4}>
         Congratulations! You're {daysAlive.toLocaleString('en-US')} days into your life,
         and today is the first one Gati gets to count.{'\n'}
         Your first 3 numbers are ready. A new one unlocks every midnight.

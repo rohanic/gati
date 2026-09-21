@@ -10,7 +10,7 @@
  * "5:30 AM" is the thing they can act on.
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { UnlockSummary } from '@/engine/unlockEngine';
 import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
+import { Text } from '@/components/ui/Text';
 
 interface KeyStatusProps {
   summary: UnlockSummary;

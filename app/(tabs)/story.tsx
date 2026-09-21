@@ -11,7 +11,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -44,6 +43,7 @@ import { STAT_DEFINITIONS } from '@/data/statDefinitions';
 import { MILESTONE_DEFINITIONS } from '@/engine/milestoneEngine';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { StoryAnnotation } from '@/store/storyStore';
+import { Text } from '@/components/ui/Text';
 
 // ─── Timeline event types ─────────────────────────────────────
 type EventType = 'stat' | 'place' | 'milestone';
@@ -226,7 +226,7 @@ function MonthSection({
 
   return (
     <View style={styles.monthSection}>
-      <Animated.Text style={[styles.monthLabel, headerStyle]}>
+      <Animated.Text style={[styles.monthLabel, headerStyle]} maxFontSizeMultiplier={1.4}>
         {monthLabel}
       </Animated.Text>
       {events.map((ev, i) => (

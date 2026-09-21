@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
@@ -18,6 +18,7 @@ import { computeLifeStats } from '@/engine/statsEngine';
 import { checkMilestones } from '@/engine/milestoneEngine';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { format } from 'date-fns';
+import { Text } from '@/components/ui/Text';
 
 // ─── Constants ────────────────────────────────────────────────
 const LOGO_SIZE = 64;

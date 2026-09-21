@@ -10,7 +10,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,6 +49,7 @@ import {
   PRODUCT_IDS,
 } from '@/services/purchaseService';
 import type { ProductSubscription } from 'expo-iap';
+import { Text } from '@/components/ui/Text';
 
 // ─── Feature comparison rows ─────────────────────────────────
 // Every `free: false` row below must correspond to real gating in the app.
@@ -107,20 +107,71 @@ function BillingToggle({
   monthly:  boolean;
   onToggle: () => void;
 }) {
-  const pillX = useSharedValue(monthly ? 0 : 1);
+  /**
+   * Geometry is MEASURED, not hard-coded.
+   *
+   * The pill was a fixed 104px wide that translated by exactly 104px, while the
+   * track sizes itself to its content. "Yearly · -33%" is wider than "Monthly",
+   * so the pill could never line up with the second option — and at larger
+   * system font sizes it drifted off both. Measuring each half fixes it at any
+   * width and any text scale.
+   */
+  const [halves, setHalves] = useState<[number, number]>([0, 0]);
+  const pillX = useSharedValue(0);
+  const pillW = useSharedValue(0);
+
+  const [monthlyW, yearlyW] = halves;
+  const ready = monthlyW > 0 && yearlyW > 0;
+
   useEffect(() => {
-    pillX.value = withSpring(monthly ? 0 : 1, { stiffness: 300, damping: 22 });
-  }, [monthly]);
+    if (!ready) return;
+    const target = monthly ? 0 : monthlyW;
+    const width  = monthly ? monthlyW : yearlyW;
+    const spring = { stiffness: 300, damping: 22 } as const;
+    // Snap into place on first measure; animate on every later toggle.
+    if (pillW.value === 0) { pillX.value = target; pillW.value = width; }
+    else { pillX.value = withSpring(target, spring); pillW.value = withSpring(width, spring); }
+  }, [monthly, ready, monthlyW, yearlyW, pillX, pillW]);
+
   const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value * 104 }],
+    transform: [{ translateX: pillX.value }],
+    width:     pillW.value,
+    // Hidden until measured, so it never flashes at the wrong size.
+    opacity:   pillW.value > 0 ? 1 : 0,
   }));
 
   return (
-    <Pressable onPress={onToggle} android_ripple={{ color: colors.green50, borderless: true }}>
+    <Pressable
+      onPress={onToggle}
+      android_ripple={{ color: colors.green50, borderless: true }}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: !monthly }}
+      accessibilityLabel={monthly ? 'Monthly billing selected' : 'Yearly billing selected'}
+    >
       <View style={styles.billingTrack}>
         <Animated.View style={[styles.billingPill, pillStyle]} />
-        <Text style={[styles.billingLabel, monthly && styles.billingLabelActive]}>Monthly</Text>
-        <Text style={[styles.billingLabel, !monthly && styles.billingLabelActive]}>Yearly · -33%</Text>
+        <Text
+          style={[styles.billingLabel, monthly && styles.billingLabelActive]}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            setHalves((prev) => (prev[0] === w ? prev : [w, prev[1]]));
+          }}
+          maxFontSizeMultiplier={1.4}
+          numberOfLines={1}
+        >
+          Monthly
+        </Text>
+        <Text
+          style={[styles.billingLabel, !monthly && styles.billingLabelActive]}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            setHalves((prev) => (prev[1] === w ? prev : [prev[0], w]));
+          }}
+          maxFontSizeMultiplier={1.4}
+          numberOfLines={1}
+        >
+          Yearly · -33%
+        </Text>
       </View>
     </Pressable>
   );
@@ -596,13 +647,17 @@ const styles = StyleSheet.create({
     position:        'absolute',
     top:             3,
     left:            3,
-    width:           104,
     bottom:          3,
+    // Width is set at runtime from the measured label — see BillingToggle.
     borderRadius:    radius.full,
     backgroundColor: colors.green700,
   },
   billingLabel: {
-    width:           104,
+    // Sized by its own text (with a floor), not pinned to a magic number.
+    // The old fixed 104 squeezed "Yearly · -33%" and clipped every label the
+    // moment the user raised their system font size.
+    minWidth:          104,
+    paddingHorizontal: spacing[3],
     textAlign:       'center',
     paddingVertical: spacing[2] + 2,
     fontFamily:      fontFamily.semiBold,

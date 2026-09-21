@@ -9,11 +9,12 @@
  *  dayNumber  — profile.daysAlive (optional) shown as "Day X,XXX"
  */
 import React, { forwardRef } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatStatCompact } from '@/engine/statsEngine';
 import type { StatDef } from '@/data/statDefinitions';
 import { colors, fontFamily, radius, spacing } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 interface StatShareCardProps {
   definition: StatDef | null;

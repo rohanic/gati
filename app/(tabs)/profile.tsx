@@ -19,7 +19,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   StyleSheet,
@@ -59,6 +58,7 @@ import {
 } from '@/config';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { ExerciseFrequency, InterestCategory } from '@/types';
+import { Text } from '@/components/ui/Text';
 
 // ─── Constants ────────────────────────────────────────────────
 const EXERCISE_OPTIONS: { value: ExerciseFrequency; label: string }[] = [
@@ -390,22 +390,62 @@ function BillingToggle({
   monthly:  boolean;
   onToggle: () => void;
 }) {
-  const pillX = useSharedValue(monthly ? 0 : 1);
+  // Geometry is measured rather than hard-coded to 88px, so the pill still
+  // lines up when the labels grow under a larger system font size.
+  const [halves, setHalves] = useState<[number, number]>([0, 0]);
+  const pillX = useSharedValue(0);
+  const pillW = useSharedValue(0);
+
+  const [monthlyW, yearlyW] = halves;
+  const ready = monthlyW > 0 && yearlyW > 0;
 
   useEffect(() => {
-    pillX.value = withSpring(monthly ? 0 : 1, { stiffness: 300, damping: 22 });
-  }, [monthly]);
+    if (!ready) return;
+    const target = monthly ? 0 : monthlyW;
+    const width  = monthly ? monthlyW : yearlyW;
+    const spring = { stiffness: 300, damping: 22 } as const;
+    if (pillW.value === 0) { pillX.value = target; pillW.value = width; }
+    else { pillX.value = withSpring(target, spring); pillW.value = withSpring(width, spring); }
+  }, [monthly, ready, monthlyW, yearlyW, pillX, pillW]);
 
   const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value * 88 }],
+    transform: [{ translateX: pillX.value }],
+    width:     pillW.value,
+    opacity:   pillW.value > 0 ? 1 : 0,
   }));
 
   return (
-    <Pressable onPress={onToggle} android_ripple={{ color: colors.green50, borderless: true }}>
+    <Pressable
+      onPress={onToggle}
+      android_ripple={{ color: colors.green50, borderless: true }}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: !monthly }}
+      accessibilityLabel={monthly ? 'Monthly billing selected' : 'Yearly billing selected'}
+    >
       <View style={styles.billingTrack}>
         <Animated.View style={[styles.billingPill, pillStyle]} />
-        <Text style={[styles.billingLabel, monthly && styles.billingLabelActive]}>Monthly</Text>
-        <Text style={[styles.billingLabel, !monthly && styles.billingLabelActive]}>Yearly</Text>
+        <Text
+          style={[styles.billingLabel, monthly && styles.billingLabelActive]}
+          maxFontSizeMultiplier={1.4}
+          numberOfLines={1}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            setHalves((prev) => (prev[0] === w ? prev : [w, prev[1]]));
+          }}
+        >
+          Monthly
+        </Text>
+        <Text
+          style={[styles.billingLabel, !monthly && styles.billingLabelActive]}
+          maxFontSizeMultiplier={1.4}
+          numberOfLines={1}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            setHalves((prev) => (prev[1] === w ? prev : [prev[0], w]));
+          }}
+        >
+          Yearly
+        </Text>
       </View>
     </Pressable>
   );
@@ -1673,13 +1713,14 @@ const styles = StyleSheet.create({
     position:        'absolute',
     top:             3,
     left:            3,
-    width:           88,
     bottom:          3,
+    // Width comes from the measured label at runtime — see BillingToggle.
     borderRadius:    radius.full,
     backgroundColor: colors.green700,
   },
   billingLabel: {
-    width:          88,
+    minWidth:          88,
+    paddingHorizontal: spacing[3],
     textAlign:      'center',
     paddingVertical: spacing[2],
     fontFamily:     fontFamily.semiBold,

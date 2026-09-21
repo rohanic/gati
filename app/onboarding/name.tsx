@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   StyleSheet,
   Pressable,
@@ -18,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 export default function NameScreen() {
   const { firstName, setFirstName } = useOnboardingStore();

@@ -24,7 +24,6 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   Modal,
   StyleSheet,
   Pressable,
@@ -49,6 +48,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { PLAY_STORE_URL } from '@/config';
 import type { MilestoneDef } from '@/engine/milestoneEngine';
+import { Text } from '@/components/ui/Text';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -339,7 +339,7 @@ export function MilestoneModal({ milestone, onDismiss }: MilestoneModalProps) {
             />
 
             {/* Subtitle — fades in after typewriter */}
-            <Animated.Text style={[styles.subtitle, subtitleStyle]}>
+            <Animated.Text style={[styles.subtitle, subtitleStyle]} maxFontSizeMultiplier={1.4}>
               {milestone.subtitle}
             </Animated.Text>
 

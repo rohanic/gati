@@ -10,7 +10,6 @@
 import React, { useEffect } from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -30,6 +29,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import { useUserStore, trialDaysLeft } from '@/store/userStore';
 import { format, addDays, parseISO } from 'date-fns';
+import { Text } from '@/components/ui/Text';
 
 // ─── Trial features list ─────────────────────────────────────
 const TRIAL_FEATURES: { icon: string; label: string; desc: string }[] = [

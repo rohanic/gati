@@ -6,3 +6,4 @@ export { ProgressBar }   from './ProgressBar';
 export { CountUpText }   from './CountUpText';
 export { Collapsible }   from './Collapsible';
 export { ErrorBoundary } from './ErrorBoundary';
+export { GoogleSignInButton, GoogleMark } from './GoogleSignInButton';

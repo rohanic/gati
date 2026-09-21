@@ -4,7 +4,7 @@
  * Left-rail: dot + connecting line.
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { formatStatCompact } from '@/engine/statsEngine';
 import type { StatDef } from '@/data/statDefinitions';
 import { colors, spacing, radius, fontFamily, getCategoryTheme } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Stat icon (static) ───────────────────────────────────────
 function RowIcon({ icon, color }: { icon: string; color: string }) {

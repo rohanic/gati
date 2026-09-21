@@ -10,7 +10,7 @@
  * Once opened, the same sheet becomes the reveal.
  */
 import React, { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Pressable, StyleSheet, Modal } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { CountUpText } from '@/components/ui';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { NumberCard } from '@/hooks/useNumbers';
+import { Text } from '@/components/ui/Text';
 
 interface UnlockSheetProps {
   card:        NumberCard | null;

@@ -3,7 +3,7 @@
  * 3 full-width option cards with animated icon selection.
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -19,6 +19,7 @@ import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { ExerciseFrequency } from '@/types';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 const OPTIONS: {
   value:   ExerciseFrequency;

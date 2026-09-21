@@ -5,7 +5,7 @@
  * Renders a live WowFact strip that recomputes as the value changes.
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { router, type Href } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { WowFact } from '@/components/onboarding/WowFact';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Animated number ─────────────────────────────────────────
 function NumberDisplay({ value, format }: { value: number; format?: (v: number) => string }) {
@@ -40,7 +41,7 @@ function NumberDisplay({ value, format }: { value: number; format?: (v: number) 
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Animated.Text style={[styles.numberText, style]}>
+    <Animated.Text style={[styles.numberText, style]} maxFontSizeMultiplier={1.3}>
       {format ? format(value) : String(value)}
     </Animated.Text>
   );

@@ -11,7 +11,7 @@
  * what to spend it on, and what you open stays open.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -27,6 +27,7 @@ import { ProgressBar } from '@/components/ui';
 import { useNumbers, type NumberCard } from '@/hooks/useNumbers';
 import { useUserStore, useStatsStore } from '@/store/userStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 type Filter = 'all' | 'sealed' | 'open';
 

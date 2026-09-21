@@ -3,7 +3,7 @@
  * Spring press animation, no emoji, no purple/orange.
  */
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Pressable, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Pressable, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { InterestCategory } from '@/types';
+import { Text } from '@/components/ui/Text';
 
 // ─── Category meta ─────────────────────────────────────────────
 export type WanderCategory = InterestCategory | 'all';

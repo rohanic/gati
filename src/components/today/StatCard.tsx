@@ -8,7 +8,7 @@
  *  - Share + bookmark actions with spring-bounce icons
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -29,6 +29,7 @@ import type { StatDef } from '@/data/statDefinitions';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
 import type { UserProfile } from '@/types';
 import { colors, spacing, radius, shadow, fontFamily, getCategoryTheme } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 // ─── Category icon (static — no idle pulse) ───────────────────
 function CategoryIcon({ icon, color }: { icon: string; color: string }) {

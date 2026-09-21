@@ -6,7 +6,7 @@
  * NO emoji. NO purple. NO orange.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Text, Modal, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Modal, StyleSheet, Pressable, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,7 @@ import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { WanderPlace, UserRating } from '@/types';
 import { useWanderStore, useUserStore } from '@/store/userStore';
 import { pushPlaceRating } from '@/services/cloudSync';
+import { Text } from '@/components/ui/Text';
 
 // ─── Option config ──────────────────────────────────────────────
 interface RatingOption {

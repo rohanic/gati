@@ -11,7 +11,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  Text,
   TextInput,
   Pressable,
   StyleSheet,
@@ -24,8 +23,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { GoogleSignInButton } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 export default function AuthScreen() {
   const [email,            setEmail]           = useState('');
@@ -154,20 +155,14 @@ export default function AuthScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* ── Google Sign In ── */}
-          <Pressable
-            style={[styles.socialBtn, anyLoading && styles.btnDisabled]}
+          {/* ── Google Sign In ──
+              Uses the shared compliant button: official four-colour mark,
+              approved label, 48dp target. Do not inline a tinted glyph here. */}
+          <GoogleSignInButton
             onPress={handleGoogle}
+            loading={loadingGoogle}
             disabled={anyLoading}
-          >
-            {loadingGoogle
-              ? <ActivityIndicator size="small" color={colors.textPrimary} />
-              : <>
-                  <Ionicons name="logo-google" size={18} color="#4285F4" />
-                  <Text style={styles.socialBtnText}>Continue with Google</Text>
-                </>
-            }
-          </Pressable>
+          />
 
           {/* ── Skip ── */}
           <Pressable style={styles.skipBtn} onPress={() => router.back()}>

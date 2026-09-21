@@ -9,7 +9,11 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, Alert,
+  View,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -35,6 +39,7 @@ import { useUserStore } from '@/store/userStore';
 import { useNumbers } from '@/hooks/useNumbers';
 import { colors, spacing, radius, fontFamily, shadow, getCategoryTheme } from '@/theme';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
+import { Text } from '@/components/ui/Text';
 
 /** Shrink the number as digits grow so it never clips. */
 function detailFontSize(value: number, precision: number): number {

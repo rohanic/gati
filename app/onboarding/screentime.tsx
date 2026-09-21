@@ -4,7 +4,7 @@
  * Interaction: spring-bounce counter (1–12 hours).
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -23,6 +23,7 @@ import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { WowFact } from '@/components/onboarding/WowFact';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
+import { Text } from '@/components/ui/Text';
 
 const MIN = 1;
 const MAX = 12;
@@ -134,7 +135,7 @@ function NumberDisplay({ value }: { value: number }) {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Animated.Text style={[styles.numberText, style]}>{value}</Animated.Text>
+    <Animated.Text style={[styles.numberText, style]} maxFontSizeMultiplier={1.3}>{value}</Animated.Text>
   );
 }
 
