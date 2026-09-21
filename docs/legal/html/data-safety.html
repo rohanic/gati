@@ -1,0 +1,271 @@
+<!--
+  Gati — Data Safety
+  Paste everything below into an Elementor "HTML" widget.
+  Fragment only — no <html>, <head> or <body>.
+
+  This is the PUBLIC-FACING version: a plain-language summary of the same
+  declarations submitted in Play Console. Keep the two in step — a public page
+  that contradicts the Data Safety form is a policy problem.
+-->
+
+<style>
+/* ===== Gati legal document — scoped styles (prefix: gtl-) ===== */
+.gati-doc{
+  --gtl-ink:#16261D;
+  --gtl-body:#3D5145;
+  --gtl-muted:#7C8F83;
+  --gtl-green:#2A7D4F;
+  --gtl-green-dark:#1E5C39;
+  --gtl-green-bg:#EEF6F1;
+  --gtl-green-line:#CFE5D9;
+  --gtl-surface:#FFFFFF;
+  --gtl-page:#F8F5EF;
+  --gtl-line:#E3E8E4;
+  --gtl-radius:14px;
+  --gtl-font:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  display:block;box-sizing:border-box;max-width:820px;margin:0 auto;
+  padding:40px 22px 64px;background:var(--gtl-page);border-radius:var(--gtl-radius);
+  font-family:var(--gtl-font);font-size:16px;line-height:1.7;color:var(--gtl-body);
+  text-align:left;letter-spacing:normal;word-break:normal;
+  -webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;
+}
+/* Hard reset for descendants. A theme's `* { letter-spacing }` or
+   `h1,h2,h3 { text-transform:uppercase }` targets these elements DIRECTLY, so
+   inheritance from the wrapper is not enough to stop it — each property has to
+   be neutralised here and re-declared on the gtl- classes below, which win on
+   specificity (0,2,0 vs 0,1,0). */
+.gati-doc *,.gati-doc *::before,.gati-doc *::after{
+  box-sizing:border-box;
+  letter-spacing:normal;
+  text-transform:none;
+  font-style:normal;
+  text-shadow:none;
+  text-align:left;
+  float:none;
+  max-width:100%;
+  /* Themes style bare `table`, `td`, `th` and `blockquote` with their own
+     borders and fills. Everything that genuinely needs one re-declares it on a
+     gtl- class below, which outranks this (0,2,0 vs 0,1,0). */
+  background-color:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  text-decoration:none;
+}
+
+.gati-doc .gtl-eyebrow{
+  display:inline-block;margin:0 0 14px;padding:5px 12px;
+  background:var(--gtl-green-bg);border:1px solid var(--gtl-green-line);
+  border-radius:999px;color:var(--gtl-green-dark);font-family:var(--gtl-font);
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.4;
+}
+.gati-doc .gtl-title{text-transform:none;text-align:left;margin:0 0 8px;font-family:var(--gtl-font);font-size:34px;line-height:1.18;font-weight:800;color:var(--gtl-ink);letter-spacing:-.02em;}
+.gati-doc .gtl-updated{text-align:left;margin:0 0 26px;font-family:var(--gtl-font);font-size:13.5px;color:var(--gtl-muted);font-weight:500;line-height:1.5;}
+.gati-doc .gtl-lede{text-align:left;margin:0 0 30px;font-family:var(--gtl-font);font-size:17px;line-height:1.65;color:var(--gtl-body);font-weight:400;}
+.gati-doc .gtl-h2{text-transform:none;text-align:left;margin:40px 0 12px;padding:0 0 10px;border-bottom:1px solid var(--gtl-line);font-family:var(--gtl-font);font-size:21px;line-height:1.3;font-weight:700;color:var(--gtl-ink);letter-spacing:-.01em;}
+.gati-doc .gtl-h3{text-transform:none;text-align:left;margin:26px 0 8px;font-family:var(--gtl-font);font-size:16px;line-height:1.4;font-weight:700;color:var(--gtl-ink);letter-spacing:-.005em;}
+.gati-doc .gtl-p{text-align:left;margin:0 0 15px;font-family:var(--gtl-font);font-size:16px;line-height:1.7;color:var(--gtl-body);font-weight:400;}
+.gati-doc .gtl-list{margin:0 0 18px;padding:0 0 0 20px;list-style:disc;}
+.gati-doc .gtl-li{text-align:left;margin:0 0 9px;font-family:var(--gtl-font);font-size:16px;line-height:1.65;color:var(--gtl-body);font-weight:400;padding:0;list-style:inherit;}
+.gati-doc .gtl-li::marker{color:var(--gtl-green);}
+.gati-doc .gtl-strong{font-weight:700;color:var(--gtl-ink);}
+.gati-doc .gtl-a{color:var(--gtl-green-dark);font-weight:600;text-decoration:underline !important;text-underline-offset:2px;}
+.gati-doc .gtl-a:hover{color:var(--gtl-green);}
+
+.gati-doc .gtl-card{margin:0 0 26px;padding:20px 22px;background:var(--gtl-surface);border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);}
+.gati-doc .gtl-card-accent{background:var(--gtl-green-bg);border-color:var(--gtl-green-line);}
+.gati-doc .gtl-card .gtl-p:last-child{margin-bottom:0;}
+.gati-doc .gtl-card .gtl-list{margin-bottom:0;}
+
+/* Key/value facts */
+.gati-doc .gtl-facts{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 30px;}
+.gati-doc .gtl-fact{
+  flex:1 1 240px;padding:16px 18px;background:var(--gtl-surface);
+  border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);
+}
+.gati-doc .gtl-fact-k{
+  display:block;margin:0 0 4px;font-family:var(--gtl-font);font-size:11px;
+  font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gtl-muted);line-height:1.4;
+}
+.gati-doc .gtl-fact-v{
+  display:block;margin:0;font-family:var(--gtl-font);font-size:15px;
+  font-weight:700;color:var(--gtl-green-dark);line-height:1.5;
+}
+
+.gati-doc .gtl-tablewrap{
+  margin:0 0 26px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);background:var(--gtl-surface);
+}
+.gati-doc .gtl-table{width:100%;min-width:560px;border-collapse:collapse;font-family:var(--gtl-font);font-size:14.5px;background:transparent;}
+.gati-doc .gtl-th{padding:12px 16px;text-align:left;text-transform:uppercase;background:#F3F6F4;font-family:var(--gtl-font);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gtl-muted);border-bottom:1px solid var(--gtl-line);}
+.gati-doc .gtl-td{padding:13px 16px;border-bottom:1px solid var(--gtl-line);color:var(--gtl-body);vertical-align:top;line-height:1.55;}
+.gati-doc .gtl-table tr:last-child .gtl-td{border-bottom:none;}
+.gati-doc .gtl-opt{font-weight:700;color:var(--gtl-green-dark);}
+.gati-doc .gtl-req{font-weight:700;color:var(--gtl-ink);}
+
+.gati-doc .gtl-never{margin:0 0 26px;padding:18px 22px;background:#FFF6F5;border:1px solid #F3DAD6;border-radius:var(--gtl-radius);}
+.gati-doc .gtl-never .gtl-li::marker{color:#C0554B;}
+
+.gati-doc .gtl-contact{margin:36px 0 0;padding:22px;background:var(--gtl-green-bg);border:1px solid var(--gtl-green-line);border-radius:var(--gtl-radius);text-align:center;}
+.gati-doc .gtl-contact .gtl-p{text-align:center;margin:0 0 6px;color:var(--gtl-green-dark);}
+
+@media (max-width:600px){
+  .gati-doc{padding:28px 16px 48px;border-radius:0;font-size:15.5px;}
+  .gati-doc .gtl-title{text-transform:none;text-align:left;font-size:27px;}
+  .gati-doc .gtl-h2{text-transform:none;text-align:left;font-size:19px;}
+  .gati-doc .gtl-lede{text-align:left;font-size:16px;}
+}
+</style>
+
+<div class="gati-doc">
+
+  <span class="gtl-eyebrow">Gati</span>
+  <h1 class="gtl-title">Data Safety</h1>
+  <p class="gtl-updated">Last updated: 21 September 2026</p>
+
+  <p class="gtl-lede">
+    A plain-language summary of what Gati collects, matching the Data Safety
+    declaration submitted to Google Play. If you want the legal detail, read the
+    <a class="gtl-a" href="/privacy-policy">Privacy Policy</a>.
+  </p>
+
+  <div class="gtl-facts">
+    <div class="gtl-fact">
+      <span class="gtl-fact-k">Data sold or shared</span>
+      <span class="gtl-fact-v">None</span>
+    </div>
+    <div class="gtl-fact">
+      <span class="gtl-fact-k">Encrypted in transit</span>
+      <span class="gtl-fact-v">Yes, all of it</span>
+    </div>
+    <div class="gtl-fact">
+      <span class="gtl-fact-k">Deletion available</span>
+      <span class="gtl-fact-v">Yes, in-app</span>
+    </div>
+    <div class="gtl-fact">
+      <span class="gtl-fact-k">Ads &amp; tracking</span>
+      <span class="gtl-fact-v">None</span>
+    </div>
+  </div>
+
+  <div class="gtl-card gtl-card-accent">
+    <p class="gtl-p">
+      <span class="gtl-strong">An account is optional.</span> Gati works fully signed out,
+      keeping everything on your phone. Nothing in the table below is collected
+      until you choose to sign in &mdash; except approximate location, which is used
+      only while you are looking at nearby places and is never stored.
+    </p>
+  </div>
+
+  <h2 class="gtl-h2">What we collect</h2>
+
+  <div class="gtl-tablewrap">
+    <table class="gtl-table">
+      <thead>
+        <tr>
+          <th class="gtl-th">Data</th>
+          <th class="gtl-th">Why</th>
+          <th class="gtl-th">Required?</th>
+          <th class="gtl-th">Shared?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">Name</span></td>
+          <td class="gtl-td">Personalising your greeting and share cards</td>
+          <td class="gtl-td"><span class="gtl-opt">Optional</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">Email address</span></td>
+          <td class="gtl-td">Identifying your account and sending your sign-in code</td>
+          <td class="gtl-td"><span class="gtl-opt">Optional</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">Date of birth &amp; lifestyle answers</span></td>
+          <td class="gtl-td">Every number in the app is calculated from these</td>
+          <td class="gtl-td"><span class="gtl-req">Required</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">Approximate location</span></td>
+          <td class="gtl-td">Finding real places near you. Used and discarded &mdash; never stored against you</td>
+          <td class="gtl-td"><span class="gtl-opt">Optional</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">App activity</span></td>
+          <td class="gtl-td">Which numbers you opened, your streak, saved places and notes</td>
+          <td class="gtl-td"><span class="gtl-req">Required</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+        <tr>
+          <td class="gtl-td"><span class="gtl-strong">Purchase history</span></td>
+          <td class="gtl-td">Confirming a subscription is active. No card details ever reach us</td>
+          <td class="gtl-td"><span class="gtl-opt">Optional</span></td>
+          <td class="gtl-td">No</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="gtl-h2">About your location</h2>
+  <p class="gtl-p">
+    This is the part most apps are vague about, so to be specific:
+  </p>
+  <ul class="gtl-list">
+    <li class="gtl-li">Location is read <span class="gtl-strong">only while the app is open</span> and you are using Wander.</li>
+    <li class="gtl-li">It is <span class="gtl-strong">never</span> read in the background. The app does not hold the Android background-location permission at all.</li>
+    <li class="gtl-li">Your position is <span class="gtl-strong">not written to any database</span> and is not attached to your account.</li>
+    <li class="gtl-li">Search results are cached against a coordinate rounded to roughly <span class="gtl-strong">one kilometre</span>, which cannot identify a person or a home.</li>
+    <li class="gtl-li">No location trail or history is ever built.</li>
+  </ul>
+
+  <h2 class="gtl-h2">What we never collect</h2>
+  <div class="gtl-never">
+    <ul class="gtl-list">
+      <li class="gtl-li">Precise location, background location or location history</li>
+      <li class="gtl-li">Contacts, calendar, photos, videos, audio or files</li>
+      <li class="gtl-li">Health or fitness sensor data &mdash; Gati&rsquo;s numbers are arithmetic on your own answers, not measurements</li>
+      <li class="gtl-li">Messages or browsing history</li>
+      <li class="gtl-li">Advertising or device identifiers</li>
+      <li class="gtl-li">Behavioural analytics &mdash; no analytics SDK is installed</li>
+    </ul>
+  </div>
+
+  <h2 class="gtl-h2">Who else sees your data</h2>
+  <p class="gtl-p">
+    Nobody buys it, and nobody receives it for their own purposes. We use a small
+    number of service providers who process data only on our instructions:
+    <span class="gtl-strong">Supabase</span> (database and sign-in),
+    <span class="gtl-strong">Google Play</span> (sign-in and billing),
+    <span class="gtl-strong">Google Places</span> (place search),
+    <span class="gtl-strong">Firebase</span> (notification delivery) and
+    <span class="gtl-strong">OpenAI</span> (short place descriptions).
+  </p>
+  <p class="gtl-p">
+    Google Places and OpenAI receive <span class="gtl-strong">nothing about you</span> &mdash; only an
+    approximate coordinate, or a place name and category.
+  </p>
+
+  <h2 class="gtl-h2">Deleting everything</h2>
+  <p class="gtl-p">
+    In the app: <span class="gtl-strong">Profile &rarr; Delete account</span>. Full instructions,
+    including what is deleted and what is kept, are on the
+    <a class="gtl-a" href="/account-deletion">account deletion page</a>.
+  </p>
+
+  <div class="gtl-contact">
+    <p class="gtl-p"><span class="gtl-strong">Gati</span> &middot; developed by Rohan Ahmad</p>
+    <p class="gtl-p">
+      <a class="gtl-a" href="mailto:support@gati.app">support@gati.app</a>
+      &nbsp;&middot;&nbsp;
+      <a class="gtl-a" href="/privacy-policy">Privacy Policy</a>
+      &nbsp;&middot;&nbsp;
+      <a class="gtl-a" href="/terms-of-service">Terms</a>
+    </p>
+  </div>
+
+</div>

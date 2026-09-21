@@ -1,0 +1,335 @@
+<!--
+  Gati — Privacy Policy
+  Paste everything below into an Elementor "HTML" widget.
+  Do not include <html>, <head> or <body> — this is a fragment.
+
+  CSS isolation: every rule is scoped under .gati-doc and every element carries
+  a gtl- class, so theme rules targeting bare h2/p/ul/table cannot win on
+  specificity. Nothing here leaks out to the rest of the page.
+-->
+
+<style>
+/* ===== Gati legal document — scoped styles (prefix: gtl-) ===== */
+.gati-doc{
+  /* Design tokens live on the wrapper so nothing global is touched. */
+  --gtl-ink:#16261D;
+  --gtl-body:#3D5145;
+  --gtl-muted:#7C8F83;
+  --gtl-green:#2A7D4F;
+  --gtl-green-dark:#1E5C39;
+  --gtl-green-bg:#EEF6F1;
+  --gtl-green-line:#CFE5D9;
+  --gtl-surface:#FFFFFF;
+  --gtl-page:#F8F5EF;
+  --gtl-line:#E3E8E4;
+  --gtl-radius:14px;
+  --gtl-font:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  /* Explicit resets: WordPress themes cascade aggressively into widgets. */
+  display:block;
+  box-sizing:border-box;
+  max-width:820px;
+  margin:0 auto;
+  padding:40px 22px 64px;
+  background:var(--gtl-page);
+  border-radius:var(--gtl-radius);
+  font-family:var(--gtl-font);
+  font-size:16px;
+  line-height:1.7;
+  color:var(--gtl-body);
+  text-align:left;
+  letter-spacing:normal;
+  word-break:normal;
+  -webkit-text-size-adjust:100%;
+  text-rendering:optimizeLegibility;
+}
+/* Hard reset for descendants. A theme's `* { letter-spacing }` or
+   `h1,h2,h3 { text-transform:uppercase }` targets these elements DIRECTLY, so
+   inheritance from the wrapper is not enough to stop it — each property has to
+   be neutralised here and re-declared on the gtl- classes below, which win on
+   specificity (0,2,0 vs 0,1,0). */
+.gati-doc *,.gati-doc *::before,.gati-doc *::after{
+  box-sizing:border-box;
+  letter-spacing:normal;
+  text-transform:none;
+  font-style:normal;
+  text-shadow:none;
+  text-align:left;
+  float:none;
+  max-width:100%;
+  /* Themes style bare `table`, `td`, `th` and `blockquote` with their own
+     borders and fills. Everything that genuinely needs one re-declares it on a
+     gtl- class below, which outranks this (0,2,0 vs 0,1,0). */
+  background-color:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  text-decoration:none;
+}
+
+.gati-doc .gtl-eyebrow{
+  display:inline-block;margin:0 0 14px;padding:5px 12px;
+  background:var(--gtl-green-bg);border:1px solid var(--gtl-green-line);
+  border-radius:999px;color:var(--gtl-green-dark);
+  font-family:var(--gtl-font);font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;line-height:1.4;
+}
+.gati-doc .gtl-title{text-transform:none;text-align:left;
+  margin:0 0 8px;font-family:var(--gtl-font);font-size:34px;line-height:1.18;
+  font-weight:800;color:var(--gtl-ink);letter-spacing:-.02em;
+}
+.gati-doc .gtl-updated{text-align:left;
+  margin:0 0 26px;font-family:var(--gtl-font);font-size:13.5px;
+  color:var(--gtl-muted);font-weight:500;line-height:1.5;
+}
+.gati-doc .gtl-lede{text-align:left;
+  margin:0 0 30px;font-family:var(--gtl-font);font-size:17px;line-height:1.65;
+  color:var(--gtl-body);font-weight:400;
+}
+.gati-doc .gtl-h2{text-transform:none;text-align:left;
+  margin:40px 0 12px;padding:0 0 10px;border-bottom:1px solid var(--gtl-line);
+  font-family:var(--gtl-font);font-size:21px;line-height:1.3;font-weight:700;
+  color:var(--gtl-ink);letter-spacing:-.01em;
+}
+.gati-doc .gtl-h3{text-transform:none;text-align:left;
+  margin:26px 0 8px;font-family:var(--gtl-font);font-size:16px;line-height:1.4;
+  font-weight:700;color:var(--gtl-ink);letter-spacing:-.005em;
+}
+.gati-doc .gtl-p{text-align:left;
+  margin:0 0 15px;font-family:var(--gtl-font);font-size:16px;line-height:1.7;
+  color:var(--gtl-body);font-weight:400;
+}
+.gati-doc .gtl-list{
+  margin:0 0 18px;padding:0 0 0 20px;list-style:disc;
+}
+.gati-doc .gtl-li{text-align:left;
+  margin:0 0 9px;font-family:var(--gtl-font);font-size:16px;line-height:1.65;
+  color:var(--gtl-body);font-weight:400;padding:0;list-style:inherit;
+}
+.gati-doc .gtl-li::marker{color:var(--gtl-green);}
+.gati-doc .gtl-strong{font-weight:700;color:var(--gtl-ink);}
+.gati-doc .gtl-a{
+  color:var(--gtl-green-dark);font-weight:600;text-decoration:underline !important;
+  text-underline-offset:2px;
+}
+.gati-doc .gtl-a:hover{color:var(--gtl-green);}
+
+.gati-doc .gtl-card{
+  margin:0 0 26px;padding:20px 22px;background:var(--gtl-surface);
+  border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);
+}
+.gati-doc .gtl-card-accent{
+  background:var(--gtl-green-bg);border-color:var(--gtl-green-line);
+}
+.gati-doc .gtl-card .gtl-list{margin-bottom:0;}
+.gati-doc .gtl-card .gtl-p:last-child{margin-bottom:0;}
+
+.gati-doc .gtl-never{
+  margin:0 0 26px;padding:18px 22px;background:#FFF6F5;
+  border:1px solid #F3DAD6;border-radius:var(--gtl-radius);
+}
+.gati-doc .gtl-never .gtl-li::marker{color:#C0554B;}
+
+.gati-doc .gtl-tablewrap{
+  margin:0 0 26px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);
+  background:var(--gtl-surface);
+}
+.gati-doc .gtl-table{
+  width:100%;min-width:520px;border-collapse:collapse;
+  font-family:var(--gtl-font);font-size:14.5px;background:transparent;
+}
+.gati-doc .gtl-th{
+  padding:12px 16px;text-align:left;background:#F3F6F4;
+  font-family:var(--gtl-font);font-size:12px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--gtl-muted);
+  border-bottom:1px solid var(--gtl-line);
+}
+.gati-doc .gtl-td{
+  padding:13px 16px;border-bottom:1px solid var(--gtl-line);
+  color:var(--gtl-body);vertical-align:top;line-height:1.55;
+}
+.gati-doc .gtl-table tr:last-child .gtl-td{border-bottom:none;}
+
+.gati-doc .gtl-contact{
+  margin:36px 0 0;padding:22px;background:var(--gtl-green-bg);
+  border:1px solid var(--gtl-green-line);border-radius:var(--gtl-radius);
+  text-align:center;
+}
+.gati-doc .gtl-contact .gtl-p{text-align:center;margin:0;color:var(--gtl-green-dark);}
+
+@media (max-width:600px){
+  .gati-doc{padding:28px 16px 48px;border-radius:0;font-size:15.5px;}
+  .gati-doc .gtl-title{text-transform:none;text-align:left;font-size:27px;}
+  .gati-doc .gtl-h2{text-transform:none;text-align:left;font-size:19px;}
+  .gati-doc .gtl-lede{text-align:left;font-size:16px;}
+}
+</style>
+
+<div class="gati-doc">
+
+  <span class="gtl-eyebrow">Gati</span>
+  <h1 class="gtl-title">Privacy Policy</h1>
+  <p class="gtl-updated">Last updated: 21 September 2026</p>
+
+  <p class="gtl-lede">
+    This policy explains exactly what Gati collects, why, and what it never does.
+    It was written against the app&rsquo;s source code rather than from a template &mdash;
+    every claim below matches something you can verify in the app itself.
+  </p>
+
+  <div class="gtl-card gtl-card-accent">
+    <h2 class="gtl-h3">The short version</h2>
+    <ul class="gtl-list">
+      <li class="gtl-li">Gati works <span class="gtl-strong">fully without an account</span>. Everything stays on your phone.</li>
+      <li class="gtl-li">We collect data only when you <span class="gtl-strong">choose to sign in</span> for backup.</li>
+      <li class="gtl-li">Your <span class="gtl-strong">location is never stored</span> and never linked to you.</li>
+      <li class="gtl-li">We <span class="gtl-strong">do not</span> sell or share your data. No advertising, no tracking SDKs.</li>
+      <li class="gtl-li">You can <span class="gtl-strong">delete your account and all server data from inside the app</span>.</li>
+    </ul>
+  </div>
+
+  <h2 class="gtl-h2">What Gati stores on your device</h2>
+  <p class="gtl-p">Whether or not you sign in, the app keeps the following locally:</p>
+  <ul class="gtl-list">
+    <li class="gtl-li"><span class="gtl-strong">Your profile</span> &mdash; first name, date of birth, and the lifestyle answers you gave during setup (sleep, coffee, screen time, meals, water, music, commute, activity level, how talkative you are).</li>
+    <li class="gtl-li"><span class="gtl-strong">Which numbers you have opened</span> and on what date.</li>
+    <li class="gtl-li"><span class="gtl-strong">Your streak history</span> &mdash; the dates you opened the app.</li>
+    <li class="gtl-li"><span class="gtl-strong">Places</span> you saved, visited or rated, and your learned category preferences.</li>
+    <li class="gtl-li"><span class="gtl-strong">Notes</span> you attach to items in your Story timeline.</li>
+  </ul>
+  <p class="gtl-p">Uninstalling the app removes all of it.</p>
+
+  <h2 class="gtl-h2">What leaves your device</h2>
+
+  <h3 class="gtl-h3">Only if you create an account</h3>
+  <p class="gtl-p">
+    Signing in is optional and exists for one reason: so your data survives a lost
+    or replaced phone. If you sign in, the items above are copied to our database,
+    along with:
+  </p>
+  <ul class="gtl-list">
+    <li class="gtl-li"><span class="gtl-strong">Your email address</span>, used solely to identify your account and send your sign-in code.</li>
+    <li class="gtl-li"><span class="gtl-strong">A push notification token and your time zone</span>, so reminders arrive at the hour you chose, in your own local time.</li>
+  </ul>
+
+  <h3 class="gtl-h3">Whether or not you have an account</h3>
+  <ul class="gtl-list">
+    <li class="gtl-li">
+      <span class="gtl-strong">Approximate location</span>, when you use the Wander tab and grant
+      permission. It is sent to our server to search for nearby places and is
+      <span class="gtl-strong">not stored against you</span>. Results are cached against a coordinate
+      rounded to roughly one kilometre, so a cached area cannot be traced back to an
+      individual. Your precise position is never written to a database.
+    </li>
+    <li class="gtl-li">
+      <span class="gtl-strong">Place ratings</span>, if you rate a place while signed in. Stored as a
+      place identifier, your account ID and the rating, and used to compute an
+      aggregate quality score. Only the aggregate is ever shown &mdash; never your
+      individual rating.
+    </li>
+  </ul>
+
+  <h3 class="gtl-h3">Never</h3>
+  <div class="gtl-never">
+    <ul class="gtl-list">
+      <li class="gtl-li">Contacts, photos, files, microphone, camera or calendar</li>
+      <li class="gtl-li">Precise location history, background location, or any location trail</li>
+      <li class="gtl-li">Advertising identifiers</li>
+      <li class="gtl-li">Behavioural analytics or profiling SDKs</li>
+    </ul>
+  </div>
+
+  <h2 class="gtl-h2">Third parties</h2>
+  <div class="gtl-tablewrap">
+    <table class="gtl-table">
+      <thead>
+        <tr>
+          <th class="gtl-th">Service</th>
+          <th class="gtl-th">What it receives</th>
+          <th class="gtl-th">Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="gtl-td"><span class="gtl-strong">Supabase</span></td><td class="gtl-td">Your account data, only if you sign in</td><td class="gtl-td">Database, authentication, backup</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">Google Play Services</span></td><td class="gtl-td">Your Google account, if you choose Google sign-in</td><td class="gtl-td">Authentication</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">Google Places</span></td><td class="gtl-td">An approximate coordinate, via our server</td><td class="gtl-td">Finding real places near you</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">Google Play Billing</span></td><td class="gtl-td">Handled entirely by Google</td><td class="gtl-td">Subscriptions, if you buy one</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">Expo Push / Firebase</span></td><td class="gtl-td">A device push token</td><td class="gtl-td">Delivering notifications</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">OpenAI</span></td><td class="gtl-td">A place name and category &mdash; never anything about you</td><td class="gtl-td">One-line &ldquo;why this place&rdquo; blurbs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="gtl-p">
+    We never send your name, date of birth, lifestyle answers or email address to
+    Google Places or OpenAI.
+  </p>
+  <p class="gtl-p">
+    <span class="gtl-strong">Payments:</span> Gati never sees your card details. All payment
+    information is handled by Google Play. We receive only a purchase receipt used
+    to confirm your subscription is active.
+  </p>
+
+  <h2 class="gtl-h2">How long we keep it</h2>
+  <ul class="gtl-list">
+    <li class="gtl-li"><span class="gtl-strong">Local data</span> &mdash; until you uninstall or clear app storage</li>
+    <li class="gtl-li"><span class="gtl-strong">Account data</span> &mdash; until you delete your account</li>
+    <li class="gtl-li"><span class="gtl-strong">Cached place results</span> &mdash; 24 hours, not linked to any user</li>
+    <li class="gtl-li"><span class="gtl-strong">Rate-limiting counters</span> &mdash; a few days, then discarded</li>
+  </ul>
+
+  <h2 class="gtl-h2">Deleting your account</h2>
+  <p class="gtl-p">
+    In the app: <span class="gtl-strong">Profile &rarr; Delete account</span>, then confirm twice.
+    This permanently erases your profile, streak history, saved places, ratings,
+    notes and push token from our servers. It cannot be undone.
+  </p>
+  <p class="gtl-p">
+    It does <span class="gtl-strong">not</span> cancel an active subscription &mdash; cancel that in
+    the Google Play Store first, or you will continue to be billed.
+  </p>
+  <p class="gtl-p">
+    Full instructions are on our
+    <a class="gtl-a" href="/account-deletion">account deletion page</a>.
+  </p>
+
+  <h2 class="gtl-h2">Children</h2>
+  <p class="gtl-p">
+    Gati is not directed at children under 13, and we do not knowingly collect
+    their data. If you believe a child has created an account, contact us and we
+    will delete it.
+  </p>
+
+  <h2 class="gtl-h2">Security</h2>
+  <p class="gtl-p">
+    All traffic uses HTTPS. Account data is protected by row-level security, so one
+    account cannot read another&rsquo;s records. Subscription status is writable only by
+    our server after verifying a receipt with Google &mdash; it can never be granted by a
+    modified app. No system is perfectly secure, and we do not claim otherwise.
+  </p>
+
+  <h2 class="gtl-h2">Your rights</h2>
+  <p class="gtl-p">
+    Depending on where you live, you may have the right to access, correct, export
+    or delete your data, and to withdraw consent.
+  </p>
+  <ul class="gtl-list">
+    <li class="gtl-li"><span class="gtl-strong">Access and correct</span> &mdash; everything is visible and editable in the app</li>
+    <li class="gtl-li"><span class="gtl-strong">Export</span> &mdash; Profile &rarr; Export your data</li>
+    <li class="gtl-li"><span class="gtl-strong">Delete</span> &mdash; Profile &rarr; Delete account</li>
+  </ul>
+
+  <h2 class="gtl-h2">Changes</h2>
+  <p class="gtl-p">
+    If this policy changes materially we will update the date above and notify you
+    in the app before the change takes effect.
+  </p>
+
+  <div class="gtl-contact">
+    <p class="gtl-p">
+      Questions about your privacy?<br>
+      <a class="gtl-a" href="mailto:support@gati.app">support@gati.app</a>
+    </p>
+  </div>
+
+</div>

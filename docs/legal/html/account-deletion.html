@@ -1,0 +1,252 @@
+<!--
+  Gati — Account & Data Deletion
+  Paste everything below into an Elementor "HTML" widget.
+  Fragment only — no <html>, <head> or <body>.
+
+  This is the URL you submit in Play Console under
+  Policy → App content → Data safety → "Account deletion URL".
+
+  Google requires this page to:
+    • name the app and developer
+    • be reachable WITHOUT logging in
+    • give steps to request deletion
+    • say which data is deleted and which is kept, with a retention period
+  All four are covered below. Do not remove them.
+-->
+
+<style>
+/* ===== Gati legal document — scoped styles (prefix: gtl-) ===== */
+.gati-doc{
+  --gtl-ink:#16261D;
+  --gtl-body:#3D5145;
+  --gtl-muted:#7C8F83;
+  --gtl-green:#2A7D4F;
+  --gtl-green-dark:#1E5C39;
+  --gtl-green-bg:#EEF6F1;
+  --gtl-green-line:#CFE5D9;
+  --gtl-surface:#FFFFFF;
+  --gtl-page:#F8F5EF;
+  --gtl-line:#E3E8E4;
+  --gtl-radius:14px;
+  --gtl-font:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  display:block;box-sizing:border-box;max-width:820px;margin:0 auto;
+  padding:40px 22px 64px;background:var(--gtl-page);border-radius:var(--gtl-radius);
+  font-family:var(--gtl-font);font-size:16px;line-height:1.7;color:var(--gtl-body);
+  text-align:left;letter-spacing:normal;word-break:normal;
+  -webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;
+}
+/* Hard reset for descendants. A theme's `* { letter-spacing }` or
+   `h1,h2,h3 { text-transform:uppercase }` targets these elements DIRECTLY, so
+   inheritance from the wrapper is not enough to stop it — each property has to
+   be neutralised here and re-declared on the gtl- classes below, which win on
+   specificity (0,2,0 vs 0,1,0). */
+.gati-doc *,.gati-doc *::before,.gati-doc *::after{
+  box-sizing:border-box;
+  letter-spacing:normal;
+  text-transform:none;
+  font-style:normal;
+  text-shadow:none;
+  text-align:left;
+  float:none;
+  max-width:100%;
+  /* Themes style bare `table`, `td`, `th` and `blockquote` with their own
+     borders and fills. Everything that genuinely needs one re-declares it on a
+     gtl- class below, which outranks this (0,2,0 vs 0,1,0). */
+  background-color:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  text-decoration:none;
+}
+
+.gati-doc .gtl-eyebrow{
+  display:inline-block;margin:0 0 14px;padding:5px 12px;
+  background:var(--gtl-green-bg);border:1px solid var(--gtl-green-line);
+  border-radius:999px;color:var(--gtl-green-dark);font-family:var(--gtl-font);
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.4;
+}
+.gati-doc .gtl-title{text-transform:none;text-align:left;margin:0 0 8px;font-family:var(--gtl-font);font-size:34px;line-height:1.18;font-weight:800;color:var(--gtl-ink);letter-spacing:-.02em;}
+.gati-doc .gtl-updated{text-align:left;margin:0 0 26px;font-family:var(--gtl-font);font-size:13.5px;color:var(--gtl-muted);font-weight:500;line-height:1.5;}
+.gati-doc .gtl-lede{text-align:left;margin:0 0 30px;font-family:var(--gtl-font);font-size:17px;line-height:1.65;color:var(--gtl-body);font-weight:400;}
+.gati-doc .gtl-h2{text-transform:none;text-align:left;margin:40px 0 12px;padding:0 0 10px;border-bottom:1px solid var(--gtl-line);font-family:var(--gtl-font);font-size:21px;line-height:1.3;font-weight:700;color:var(--gtl-ink);letter-spacing:-.01em;}
+.gati-doc .gtl-h3{text-transform:none;text-align:left;margin:26px 0 8px;font-family:var(--gtl-font);font-size:16px;line-height:1.4;font-weight:700;color:var(--gtl-ink);letter-spacing:-.005em;}
+.gati-doc .gtl-p{text-align:left;margin:0 0 15px;font-family:var(--gtl-font);font-size:16px;line-height:1.7;color:var(--gtl-body);font-weight:400;}
+.gati-doc .gtl-list{margin:0 0 18px;padding:0 0 0 20px;list-style:disc;}
+.gati-doc .gtl-li{text-align:left;margin:0 0 9px;font-family:var(--gtl-font);font-size:16px;line-height:1.65;color:var(--gtl-body);font-weight:400;padding:0;list-style:inherit;}
+.gati-doc .gtl-li::marker{color:var(--gtl-green);}
+.gati-doc .gtl-strong{font-weight:700;color:var(--gtl-ink);}
+.gati-doc .gtl-a{color:var(--gtl-green-dark);font-weight:600;text-decoration:underline !important;text-underline-offset:2px;}
+.gati-doc .gtl-a:hover{color:var(--gtl-green);}
+
+.gati-doc .gtl-card{margin:0 0 26px;padding:20px 22px;background:var(--gtl-surface);border:1px solid var(--gtl-line);border-radius:var(--gtl-radius);}
+.gati-doc .gtl-card-accent{background:var(--gtl-green-bg);border-color:var(--gtl-green-line);}
+.gati-doc .gtl-card .gtl-p:last-child{margin-bottom:0;}
+.gati-doc .gtl-card .gtl-list{margin-bottom:0;}
+
+/* Numbered steps */
+.gati-doc .gtl-steps{margin:0 0 26px;padding:0;list-style:none;counter-reset:gtlstep;}
+.gati-doc .gtl-step{
+  position:relative;margin:0 0 14px;padding:16px 20px 16px 58px;
+  background:var(--gtl-surface);border:1px solid var(--gtl-line);
+  border-radius:var(--gtl-radius);list-style:none;
+  font-family:var(--gtl-font);font-size:16px;line-height:1.6;color:var(--gtl-body);
+}
+.gati-doc .gtl-step::before{
+  counter-increment:gtlstep;content:counter(gtlstep);
+  position:absolute;left:18px;top:16px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--gtl-green);color:#fff;
+  font-family:var(--gtl-font);font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+
+/* Warning callout */
+.gati-doc .gtl-warn{margin:0 0 26px;padding:18px 22px;background:#FFFAF0;border:1px solid #F0E0BC;border-radius:var(--gtl-radius);}
+.gati-doc .gtl-warn .gtl-p:last-child{margin-bottom:0;}
+
+/* Deleted / kept columns */
+.gati-doc .gtl-cols{display:flex;flex-wrap:wrap;gap:16px;margin:0 0 26px;}
+.gati-doc .gtl-col{flex:1 1 280px;padding:20px 22px;border-radius:var(--gtl-radius);border:1px solid var(--gtl-line);background:var(--gtl-surface);}
+.gati-doc .gtl-col-del{background:#FFF6F5;border-color:#F3DAD6;}
+.gati-doc .gtl-col-del .gtl-li::marker{color:#C0554B;}
+.gati-doc .gtl-col .gtl-list{margin-bottom:0;}
+.gati-doc .gtl-col .gtl-h3{text-transform:none;text-align:left;margin-top:0;}
+
+.gati-doc .gtl-mail{
+  display:inline-block;margin:6px 0 0;padding:13px 26px;
+  background:var(--gtl-green);border:none;border-radius:999px;
+  color:#fff;font-family:var(--gtl-font);font-size:15px;font-weight:700;
+  text-decoration:none;line-height:1.4;
+}
+.gati-doc .gtl-mail:hover{background:var(--gtl-green-dark);color:#fff;}
+
+.gati-doc .gtl-contact{margin:36px 0 0;padding:22px;background:var(--gtl-green-bg);border:1px solid var(--gtl-green-line);border-radius:var(--gtl-radius);text-align:center;}
+.gati-doc .gtl-contact .gtl-p{text-align:center;margin:0 0 6px;color:var(--gtl-green-dark);}
+
+@media (max-width:600px){
+  .gati-doc{padding:28px 16px 48px;border-radius:0;font-size:15.5px;}
+  .gati-doc .gtl-title{text-transform:none;text-align:left;font-size:27px;}
+  .gati-doc .gtl-h2{text-transform:none;text-align:left;font-size:19px;}
+  .gati-doc .gtl-lede{text-align:left;font-size:16px;}
+  .gati-doc .gtl-step{padding:14px 16px 14px 52px;}
+}
+</style>
+
+<div class="gati-doc">
+
+  <span class="gtl-eyebrow">Gati</span>
+  <h1 class="gtl-title">Delete your account and data</h1>
+  <p class="gtl-updated">Last updated: 21 September 2026</p>
+
+  <p class="gtl-lede">
+    This page explains how to permanently delete your <span class="gtl-strong">Gati</span>
+    account &mdash; the Android app published by <span class="gtl-strong">Rohan Ahmad</span>
+    (package <span class="gtl-strong">com.gati.app</span>) &mdash; and exactly what happens to
+    your data when you do.
+  </p>
+
+  <div class="gtl-card gtl-card-accent">
+    <p class="gtl-p">
+      <span class="gtl-strong">You may not need an account at all.</span> Gati works fully
+      without one, storing everything on your phone. If you never signed in, we
+      hold no data about you &mdash; simply uninstalling the app removes everything.
+    </p>
+  </div>
+
+  <h2 class="gtl-h2">Option 1 &mdash; delete it yourself, in the app</h2>
+  <p class="gtl-p">The fastest route. Takes a few seconds and is immediate.</p>
+
+  <ol class="gtl-steps">
+    <li class="gtl-step">Open Gati and go to the <span class="gtl-strong">Profile</span> tab.</li>
+    <li class="gtl-step">Scroll to <span class="gtl-strong">Cloud backup</span> and tap <span class="gtl-strong">Delete account</span>.</li>
+    <li class="gtl-step">Confirm twice. The second prompt is the final one &mdash; deletion begins as soon as you accept it.</li>
+    <li class="gtl-step">Uninstall the app to also clear anything still stored on your phone.</li>
+  </ol>
+
+  <h2 class="gtl-h2">Option 2 &mdash; ask us to delete it</h2>
+  <p class="gtl-p">
+    If you have lost access to the app or your device, email us from
+    <span class="gtl-strong">the address on your Gati account</span> so we can verify the
+    request. Include the word &ldquo;delete&rdquo; in the subject.
+  </p>
+  <p class="gtl-p">
+    <a class="gtl-mail" href="mailto:support@gati.app?subject=Delete%20my%20Gati%20account">Email support@gati.app</a>
+  </p>
+  <p class="gtl-p">
+    We respond within <span class="gtl-strong">7 days</span> and complete deletion within
+    <span class="gtl-strong">30 days</span> of verifying the request.
+  </p>
+
+  <h2 class="gtl-h2">What is deleted, and what is kept</h2>
+
+  <div class="gtl-cols">
+    <div class="gtl-col gtl-col-del">
+      <h3 class="gtl-h3">Deleted permanently</h3>
+      <ul class="gtl-list">
+        <li class="gtl-li">Your account and email address</li>
+        <li class="gtl-li">Your profile &mdash; name, date of birth, and all lifestyle answers</li>
+        <li class="gtl-li">Which numbers you opened, and when</li>
+        <li class="gtl-li">Your streak history</li>
+        <li class="gtl-li">Saved places, visits and your place ratings</li>
+        <li class="gtl-li">Notes from your Story timeline</li>
+        <li class="gtl-li">Your push notification token and time zone</li>
+        <li class="gtl-li">Your subscription records</li>
+      </ul>
+    </div>
+
+    <div class="gtl-col">
+      <h3 class="gtl-h3">Kept, and why</h3>
+      <ul class="gtl-list">
+        <li class="gtl-li">
+          <span class="gtl-strong">Anonymous place scores.</span> Your individual ratings are
+          erased. The aggregate quality score they contributed to remains, because
+          it contains no identifier and cannot be traced to any person.
+        </li>
+        <li class="gtl-li">
+          <span class="gtl-strong">Payment records held by Google.</span> We do not store your
+          payment details and cannot delete Google&rsquo;s records. Google retains these
+          for tax and accounting purposes under their own policy.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="gtl-p">
+    Deletion is immediate and applies to live systems at once. Encrypted backups
+    are rotated out within <span class="gtl-strong">30 days</span>, after which no copy remains.
+  </p>
+
+  <h2 class="gtl-h2">Before you delete</h2>
+
+  <div class="gtl-warn">
+    <p class="gtl-p">
+      <span class="gtl-strong">Cancel your subscription first.</span> Deleting your Gati account
+      does <span class="gtl-strong">not</span> cancel an active Google Play subscription, and you
+      will continue to be billed. Cancel it in the Play Store &rarr; Subscriptions,
+      then delete your account.
+    </p>
+    <p class="gtl-p">
+      <span class="gtl-strong">This cannot be undone.</span> There is no recovery window and no
+      way for us to restore the data afterwards. If you want a copy, use
+      <span class="gtl-strong">Profile &rarr; Export your data</span> before deleting.
+    </p>
+  </div>
+
+  <h2 class="gtl-h2">Deleting the app only</h2>
+  <p class="gtl-p">
+    Uninstalling Gati removes everything stored on your phone, but it does
+    <span class="gtl-strong">not</span> delete an account you created. To remove data from our
+    servers, use one of the two options above.
+  </p>
+
+  <div class="gtl-contact">
+    <p class="gtl-p"><span class="gtl-strong">Gati</span> &middot; developed by Rohan Ahmad</p>
+    <p class="gtl-p">
+      <a class="gtl-a" href="mailto:support@gati.app">support@gati.app</a>
+      &nbsp;&middot;&nbsp;
+      <a class="gtl-a" href="/privacy-policy">Privacy Policy</a>
+    </p>
+  </div>
+
+</div>
