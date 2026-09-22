@@ -1,132 +1,147 @@
 ================================================================
 GATI — Google Play store listing copy (en-US)
-Paste each block into Play Console → Grow → Store presence →
-Main store listing. Character counts are verified below.
+
+Paste each block below into Play Console → Grow → Store presence →
+Main store listing. Counts are verified against Play's limits.
+
+  Category : App (not Game) → Lifestyle
+  Package  : com.gati.numberswanders
 ================================================================
 
 ──────────────────────────────────────────────
-APP NAME  (Play limit: 30 characters)
+APP NAME  (28/30)
 ──────────────────────────────────────────────
 Gati: Life Numbers & Wanders
 
-  Alternates:
-    Gati: Life Numbers & Places    (27)  ← more search volume
-    Gati: Numbers & Wanders        (23)
-    Gati Numbers & Wander          (21)
+  Alternates: Gati: Life Numbers & Places (27) · Gati: Numbers & Wanders (23)
 
-  Why this one: "Gati" alone is unsearchable — nobody types it. This
-  suffix carries both halves of the product, matches the package name
-  (com.gati.numberswanders), and "Life Numbers" is the part people
-  actually type. No emoji, no ALL CAPS, no "#1"/"Best" — all of those
-  are title violations.
+  "Gati" alone is unsearchable. The suffix carries both halves of the
+  product and matches the package name. "Life Numbers" is the part
+  people actually type; "Wanders" is the in-app feature name and pulls
+  less search traffic, which is the one trade this title makes. If
+  installs are slow, swapping it for "Places" is the first thing to try
+  — the title can change any time, the package name cannot.
 
-  Worth knowing: "Wanders" is the in-app feature name rather than a
-  search term; "Places" would pull more traffic. "Life Numbers" earns
-  most of that back, which is why this title is the better trade. If
-  installs are slower than expected, swapping "Wanders" for "Places"
-  is the first thing to try — the title can be changed at any time,
-  the package name cannot.
+  Policy: no emoji, no ALL CAPS, no "#1"/"Best", no price or promo
+  words. All four are title violations.
 
 ──────────────────────────────────────────────
-SHORT DESCRIPTION  (Play limit: 80 characters)
+SHORT DESCRIPTION  (74/80)
 ──────────────────────────────────────────────
-One surprising number about your life each day, and a good place near you.
+Your life in 25 numbers — heartbeats, steps, sleep — plus places near you.
 
   Alternates:
-    One number about your life each day — then somewhere real to go with it.
-    Your life in 25 numbers. One a day. One good place nearby to take it.
-
-  Carries both halves of the product AND the two things people actually
-  type: "life" numbers, and places "near you". The previous version said
-  "somewhere real to go", which reads well and matches nothing anyone
-  searches for.
+    One surprising number about your life each day, and a good place near you. (74)
+    Heartbeats, steps, hours asleep: your life in 25 numbers. One a day. (68)
+    25 numbers about your life. One a day, plus good places near you to go. (71)
 
   This is the line under the icon in search results and the single
-  biggest lever on install rate. It should say what happens, not
-  what the app "is".
+  biggest lever on install rate, so it does three jobs at once: names
+  the product concretely (25 numbers), gives three specific examples
+  that are also the terms people search (heartbeats, steps, sleep), and
+  keeps "near you" so the other half of the app is not invisible. It
+  reads as a sentence rather than a keyword list, which matters —
+  stuffing is penalised.
 
 ──────────────────────────────────────────────
-FULL DESCRIPTION  (Play limit: 4000 characters)
+FULL DESCRIPTION  (2892/4000)
 ──────────────────────────────────────────────
-You have taken about 300 million breaths. Your heart has beaten
-over 2 billion times. You have slept through roughly a third of
-your life, and you have spent whole months of it looking at a
-screen.
+You have taken about 300 million breaths. Your heart has beaten over
+2 billion times. You have slept through roughly a third of your life,
+and you have spent whole months of it looking at a screen.
 
 You know none of these numbers. Gati works them out.
 
 ONE NUMBER A DAY
 
-Gati holds 25 numbers about your life. You do not get them all at
-once — that would take ten minutes and you would never open the
-app again.
+Gati holds 25 numbers about your life. You do not get them all at once —
+that would take ten minutes and you would never open the app again.
 
-Instead you get keys. Three on the day you join, then one more
-every day at midnight UTC. You choose which number to spend each
-key on. Every number shows you a hint before you commit, so the
-choice is yours and it is a real one.
+Instead you get keys. Three on the day you join, then one more every day
+at midnight. You choose which number to spend each key on, and every
+number shows you a hint before you commit, so the choice is a real one.
 
-You can bank up to three keys, so missing a day costs you nothing.
-Come back on Friday and you have a decision to make about how to
-spend the week.
+You can bank up to three keys, so missing a day costs you nothing. Come
+back on Friday and you have a decision to make about your week.
 
 WHAT GATI COUNTS
 
-Time — days alive, hours alive, weeks old, months old, seasons
-lived, full moons you have seen, your exact age to the second.
+Time — days alive, hours alive, weeks and months old, seasons lived,
+full moons you have seen, your exact age to the second.
 
-Body — heartbeats, breaths taken, steps walked, litres of blood
-pumped, hours slept, full days spent asleep.
+Body — heartbeats, breaths taken, steps walked, litres of blood pumped,
+hours of sleep, full days spent asleep.
 
 Habits — cups of coffee, glasses of water, meals eaten, screen time,
 full days lost to your phone, hours of music, hours commuting.
 
-Every figure is built from answers you give during a two-minute
-setup, using published population averages for the things nobody
-tracks. It is arithmetic, done honestly, and the app tells you
-which assumptions it used.
+Every figure is built from answers you give during a two-minute setup,
+using published population averages for the things nobody tracks. It is
+arithmetic, done honestly, and the app tells you which assumptions it used.
 
-THEN GO SOMEWHERE
+THEN GO SOMEWHERE NEAR YOU
 
-A number on a screen is a fact. Gati turns it into a reason to
-leave the house, by finding good places near you.
+A number on a screen is a fact. Gati turns it into a reason to leave the
+house, by finding good places near you.
 
-Unlock "hours of coffee consumed" and Wander shows you a coffee
-place near you that is actually good and actually close — ranked
-on distance, rating, how many people rated it, and whether it is
-open right now, not just whichever chain paid the most. Unlock
-your step count and it finds somewhere worth walking to.
+Unlock your coffee total and Wander shows you a coffee place nearby that
+is actually good and actually close — ranked on distance, rating, how
+many people rated it, and whether it is open right now. Unlock your step
+count and it finds somewhere worth walking to.
 
-Rate the places you visit. Save the ones you want to return to.
+You choose how far to look, from 2 km to 50 km. Rate the places you
+visit. Save the ones you want to return to.
 
 YOUR STORY
 
-Every number you open lands on a timeline, with the date you
-found it and room to write what you were doing. Build a streak.
-Hit milestones. Look back after a month and see a record of the
-year rather than a list of statistics.
+Every number you open lands on a timeline, with the date you found it
+and room to write what you were doing. Build a streak. Hit milestones.
+Look back after a month and see a record of your year rather than a list
+of statistics.
 
 BUILT PROPERLY
 
 • Works fully without an account — everything lives on your phone
-• No ads, anywhere, ever
-• No analytics SDK, no tracking, no advertising ID
-• Your approximate location is used to find places and is never
-  stored against you
+• No ads, anywhere
+• No analytics, no tracking, no advertising ID
+• Your approximate location is used to find places and is never stored
+  against you
 • Sign in only if you want your data on a second device
 • Delete everything from inside the app, in two taps
 
 A NOTE ON THE NUMBERS
 
-Gati is not a fitness tracker and not a medical app. It does not
-measure your body — it does arithmetic on what you told it. The
-numbers are estimates, and good ones, but they are estimates.
-Nothing here is health advice.
-
-────────────────────────────
+Gati is not a fitness tracker and not a medical app. It does not measure
+your body — it does arithmetic on what you told it. The numbers are
+estimates, and good ones, but they are estimates. Nothing here is health
+advice.
 
 Gati means motion, pace, the way something moves forward.
 
 Contact: contact@creaeza.com
 Privacy: https://creaeza.com/gati-privacy
 Terms: https://creaeza.com/gati-terms
+
+──────────────────────────────────────────────
+NOTES
+──────────────────────────────────────────────
+Checked against Play's metadata policy: no superlatives, no "#1", no
+price or promotional words, no emoji, no testimonials or review quotes,
+no competitor names, no medical claims. ALL-CAPS appears only in
+section headers, which is allowed.
+
+The closing paragraph is not optional. Gati counts heartbeats, breaths
+and steps, which reads like a fitness app; stating plainly that it
+measures nothing and is not medical is what keeps the listing
+consistent with the Health features declaration (none), the Data Safety
+form (no Health and fitness), the category (Lifestyle) and Terms §1.
+Play cross-checks these, and four consistent declarations is the strong
+position.
+
+Tags: up to 5, chosen from Play's fixed per-category list — a browse
+and recommendation signal, not a search one. Closest matches to: daily
+habits, self-discovery, local discovery, journaling, personalisation.
+Nothing implying health or fitness.
+
+There is no keywords field on Play. Search is indexed from the title,
+short description and full description only.
