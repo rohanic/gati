@@ -115,7 +115,45 @@ if (existsSync('google-services.json')) {
   bad('google-services.json missing — tokens register, nothing is delivered',
       'Firebase → add Android app com.gati.numberswanders → download to project root');
 }
-note('FCM V1 key upload cannot be checked from here — run: eas credentials');
+
+// EAS credentials. Worth checking from here because the only other way to
+// see them is an interactive menu, and "I uploaded it" and "it is uploaded"
+// have not reliably been the same thing.
+console.log('\n\x1b[1mEAS credentials\x1b[0m');
+try {
+  const { homedir } = await import('node:os');
+  const state = JSON.parse(readFileSync(`${homedir()}/.expo/state.json`, 'utf8'));
+  const session = state?.auth?.sessionSecret;
+  const appId = JSON.parse(readFileSync('app.json', 'utf8'))?.expo?.extra?.eas?.projectId;
+  if (!session) note('not logged in to EAS — run `eas login` to include this check');
+  else if (!appId) note('no EAS projectId in app.json');
+  else {
+    const r = await fetch('https://api.expo.dev/graphql', {
+      method: 'POST',
+      // Without a User-Agent the API is fronted by a 403 that looks like an
+      // auth failure and is not one.
+      headers: { 'Content-Type': 'application/json', 'expo-session': session,
+                 'User-Agent': 'gati-verify-backend' },
+      body: JSON.stringify({
+        query: `query($appId:String!){app{byId(appId:$appId){androidAppCredentials{
+                  applicationIdentifier
+                  googleServiceAccountKeyForFcmV1{clientEmail projectIdentifier}}}}}`,
+        variables: { appId },
+      }),
+    });
+    const j = await r.json();
+    const list = j?.data?.app?.byId?.androidAppCredentials ?? [];
+    const pkg = JSON.parse(readFileSync('app.json', 'utf8'))?.expo?.android?.package;
+    const mine = list.find((c) => c.applicationIdentifier === pkg);
+    if (!mine) bad(`no EAS credentials for ${pkg}`, 'eas credentials -p android');
+    else if (mine.googleServiceAccountKeyForFcmV1) {
+      ok(`FCM V1 key uploaded (${mine.googleServiceAccountKeyForFcmV1.projectIdentifier})`);
+    } else {
+      bad('FCM V1 key not uploaded — push will not be delivered',
+          'eas credentials -p android → Google Service Account → FCM V1');
+    }
+  }
+} catch (e) { note(`could not read EAS credentials: ${e.message}`); }
 
 console.log('\n\x1b[1mScheduled push\x1b[0m');
 note('cron.job is not exposed over REST — run the verify queries in supabase/cron-setup.sql');
