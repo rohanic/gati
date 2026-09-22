@@ -103,12 +103,46 @@ export function keysGranted(joinDate: string | null | undefined, now: Date = new
   return DAY_ZERO_KEYS + utcDaysSinceJoin(joinDate, now) * KEYS_PER_DAY;
 }
 
+/**
+ * The day the ledger starts from, in epoch ms.
+ *
+ * Falls back to the EARLIEST unlock when the profile has no usable join date.
+ *
+ * Without this fallback a missing `appJoinDate` was catastrophic and silent:
+ * `unlockDayIndices` returned [] because it had nothing to measure against,
+ * so every spend vanished from the ledger and `availableKeys` reported a
+ * full bank of 3 no matter how many numbers had been opened — 3 after three
+ * unlocks, still 3 after nine. The balance check inside `redeemKey` is the
+ * authoritative one, so it also meant the entire catalogue could be opened in
+ * a single sitting. Anyone whose profile predates the field, or whose profile
+ * came back from a cloud restore without it, hit exactly this.
+ *
+ * Someone who has opened numbers has demonstrably been here since at least
+ * the first of them, so that date is a sound anchor. With no join date AND no
+ * unlocks there is nothing to reconstruct and nothing to get wrong: a full
+ * bank is the right answer for a genuinely new user.
+ */
+function resolveJoinDay(
+  joinDate:    string | null | undefined,
+  unlockDates: readonly string[],
+): number | null {
+  const explicit = parseUtcDay(joinDate);
+  if (explicit !== null) return explicit;
+
+  let earliest: number | null = null;
+  for (const iso of unlockDates) {
+    const day = parseUtcDay(iso);
+    if (day !== null && (earliest === null || day < earliest)) earliest = day;
+  }
+  return earliest;
+}
+
 /** Day index (0-based, UTC) of each unlock, relative to the join date. */
 function unlockDayIndices(
   joinDate:    string | null | undefined,
   unlockDates: readonly string[],
 ): number[] {
-  const join = parseUtcDay(joinDate);
+  const join = resolveJoinDay(joinDate, unlockDates);
   if (join === null) return [];
   const out: number[] = [];
   for (const iso of unlockDates) {
@@ -151,7 +185,13 @@ export function availableKeys(
   unlockDates: readonly string[],
   now:         Date = new Date(),
 ): number {
-  const today = utcDaysSinceJoin(joinDate, now);
+  // Resolve once and measure BOTH the elapsed days and the spend indices
+  // from the same anchor — mixing an explicit join date with a fallback
+  // anchor would count days from one origin and spends from another.
+  const join  = resolveJoinDay(joinDate, unlockDates);
+  const today = join === null
+    ? 0
+    : Math.max(0, Math.floor((utcMidnight(now) - join) / MS_PER_DAY));
   const spent = unlockDayIndices(joinDate, unlockDates);
 
   let balance = 0;

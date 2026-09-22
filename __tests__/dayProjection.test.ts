@@ -6,7 +6,7 @@
  * true from the profile alone, and true at the hour it is read — not at the
  * hour it was scheduled.
  */
-import { projectRestOfDay } from '@/engine/statsEngine';
+import { projectRestOfDay, getDayContext } from '@/engine/statsEngine';
 import type { UserProfile } from '@/types';
 
 const profile: UserProfile = {
@@ -76,5 +76,54 @@ describe('projectRestOfDay', () => {
 
   it('rejects an out-of-range hour instead of inventing a figure', () => {
     for (const h of [-1, 24, 99, NaN]) expect(projectRestOfDay(profile, h)).toBeNull();
+  });
+});
+
+/**
+ * Day context — the Today screen's local card.
+ *
+ * Built from the device clock and IANA zone rather than location, so the
+ * thing to guard is the arithmetic and the defensive read of the zone.
+ */
+describe('getDayContext', () => {
+  it('counts the day of the year from 1, not 0', () => {
+    expect(getDayContext(new Date(2026, 0, 1)).dayOfYear).toBe(1);
+    expect(getDayContext(new Date(2026, 11, 31)).dayOfYear).toBe(365);
+  });
+
+  it('knows a leap year has an extra day', () => {
+    expect(getDayContext(new Date(2028, 0, 1)).daysInYear).toBe(366);
+    expect(getDayContext(new Date(2026, 0, 1)).daysInYear).toBe(365);
+    // 2100 is divisible by 4 but not a leap year.
+    expect(getDayContext(new Date(2100, 0, 1)).daysInYear).toBe(365);
+    expect(getDayContext(new Date(2000, 0, 1)).daysInYear).toBe(366);
+  });
+
+  it('leaves no days after 31 December', () => {
+    expect(getDayContext(new Date(2026, 11, 31)).daysLeft).toBe(0);
+    expect(getDayContext(new Date(2028, 11, 31)).daysLeft).toBe(0);
+  });
+
+  it('spans 0 to 100 percent across the year', () => {
+    expect(getDayContext(new Date(2026, 11, 31)).percentOfYear).toBe(100);
+    const mid = getDayContext(new Date(2026, 5, 15)).percentOfYear;
+    expect(mid).toBeGreaterThan(40);
+    expect(mid).toBeLessThan(60);
+  });
+
+  it('counts calendar days, so a DST shift cannot round it wrong', () => {
+    // Late-March dates either side of a European DST change must be
+    // consecutive, not 0.96 of a day apart.
+    const before = getDayContext(new Date(2026, 2, 28)).dayOfYear;
+    const after  = getDayContext(new Date(2026, 2, 29)).dayOfYear;
+    expect(after - before).toBe(1);
+  });
+
+  it('always yields a usable zone', () => {
+    const ctx = getDayContext();
+    expect(typeof ctx.timeZone).toBe('string');
+    expect(ctx.timeZone.length).toBeGreaterThan(0);
+    // `place` is optional, but when present it must be display-ready.
+    if (ctx.place !== null) expect(ctx.place).not.toContain('_');
   });
 });

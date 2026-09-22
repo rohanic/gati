@@ -47,7 +47,7 @@ import {
   scheduleMilestonePrediction,
   scheduleServerMilestonePush,
 } from '@/services/notifications';
-import { computeLifeStats, projectRestOfDay } from '@/engine/statsEngine';
+import { computeLifeStats, projectRestOfDay, getDayContext } from '@/engine/statsEngine';
 import { getUpcomingMilestonePrediction, type MilestoneCheckParams } from '@/engine/milestoneEngine';
 import { getBridgeForStat } from '@/engine/statPlaceBridge';
 import { formatTimeUntilNextKey, MAX_BANKED_KEYS } from '@/engine/unlockEngine';
@@ -300,6 +300,7 @@ export default function TodayScreen() {
   const categoryScores    = useWanderStore((s) => s.categoryScores);
   const serverPushEnabled = !!useAuthStore((s) => s.userId);
 
+  const clockTick = useClockStore((s) => s.tick);
   const { today: openedToday, summary, unlocked, locked } = useNumbers();
   const suggestion   = useSuggestedNumber();
   const openSet      = useOpenDateSet();
@@ -482,6 +483,19 @@ export default function TodayScreen() {
     return picks;
   }, [locked, unlocked.length, suggestion?.definition.id]);
 
+  /**
+   * Recomputed on the clock tick rather than once on mount, so the card does
+   * not still say "day 265" for someone who left the app open across
+   * midnight. The tick bumps whenever the app returns to the foreground.
+   */
+  const dayContext = useMemo(() => getDayContext(), [clockTick]);
+  const dayProjection = useMemo(
+    () => (profile
+      ? projectRestOfDay(profile, new Date().getHours(), dayContext.dayOfYear)
+      : null),
+    [profile, dayContext.dayOfYear],
+  );
+
   // ── Header entrance ──
   const headOp = useSharedValue(0);
   const headY  = useSharedValue(-12);
@@ -536,6 +550,34 @@ export default function TodayScreen() {
             <Text style={styles.hintText}>
               Your best was {maxStreak} days. Today starts the next one.
             </Text>
+          </View>
+        )}
+
+        {/* ── Where today sits ──
+            The local context the Today screen was missing. Built from the
+            device clock and its IANA zone, so it needs no location, no
+            network and no stored coordinate — and "day 266 of 366" is more
+            on-topic for an app about counting than weather would be. */}
+        {dayContext && (
+          <View style={styles.contextCard}>
+            <View style={styles.contextHead}>
+              <Ionicons name="earth-outline" size={13} color={colors.green700} />
+              <Text style={styles.contextEyebrow}>
+                {dayContext.place ? `Today in ${dayContext.place}` : 'Today'}
+              </Text>
+            </View>
+            <Text style={styles.contextTitle}>
+              Day {dayContext.dayOfYear} of {dayContext.daysInYear}
+              {dayContext.daysLeft > 0 ? ` · ${dayContext.daysLeft} left` : ''}
+            </Text>
+            <View style={styles.contextBar}>
+              <View
+                style={[styles.contextBarFill, { width: `${dayContext.percentOfYear}%` }]}
+              />
+            </View>
+            {dayProjection && (
+              <Text style={styles.contextBody}>{dayProjection}</Text>
+            )}
           </View>
         )}
 
@@ -966,6 +1008,47 @@ const styles = StyleSheet.create({
   },
 
   // ── Collection ──
+  contextCard: {
+    backgroundColor:   colors.surface,
+    borderRadius:      radius.lg,
+    borderWidth:       1,
+    borderColor:       colors.border,
+    paddingHorizontal: spacing[4],
+    paddingVertical:   spacing[4],
+    gap:               spacing[2],
+    marginBottom:      spacing[4],
+  },
+  contextHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  contextEyebrow: {
+    fontFamily:    fontFamily.semiBold,
+    fontSize:      11,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color:         colors.green700,
+  },
+  contextTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize:   16,
+    color:      colors.textPrimary,
+  },
+  contextBar: {
+    height:          4,
+    borderRadius:    radius.full,
+    backgroundColor: colors.surface2,
+    overflow:        'hidden',
+  },
+  contextBarFill: {
+    height:          '100%',
+    borderRadius:    radius.full,
+    backgroundColor: colors.green700,
+  },
+  contextBody: {
+    fontFamily: fontFamily.regular,
+    fontSize:   13,
+    lineHeight: 19,
+    color:      colors.textSecondary,
+  },
+
   firstRunNote: {
     fontFamily:    fontFamily.regular,
     fontSize:      13,

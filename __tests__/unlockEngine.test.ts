@@ -295,3 +295,60 @@ describe('a month of daily use', () => {
     expect(summarizeUnlocks(join, caughtUp, TOTAL, day(15)).available).toBe(1);
   });
 });
+
+/**
+ * A profile with no usable join date.
+ *
+ * This is the failure that made the counter read "3 keys remaining" forever.
+ * With nothing to measure spends against, every unlock fell out of the ledger
+ * and the bank never drained — and because `redeemKey` gates on this same
+ * number, the whole catalogue could be opened in one sitting.
+ *
+ * Reachable from a profile written before `appJoinDate` existed, or restored
+ * from a backup without it.
+ */
+describe('availableKeys with a missing join date', () => {
+  const NOW = new Date('2026-09-22T10:00:00Z');
+
+  it('drains the bank exactly as an explicit join date would', () => {
+    const dates = ['2026-09-20', '2026-09-21', '2026-09-22'];
+    expect(availableKeys(null, dates, NOW))
+      .toBe(availableKeys('2026-09-20', dates, NOW));
+  });
+
+  it('no longer reports a full bank after nine unlocks', () => {
+    const nine = Array.from({ length: 9 }, () => '2026-09-21');
+    expect(availableKeys(null, nine, NOW)).toBeLessThan(MAX_BANKED_KEYS);
+  });
+
+  it('still gives a genuinely new user a full bank', () => {
+    // No join date AND no unlocks is a fresh install, not a broken profile.
+    expect(availableKeys(null, [], NOW)).toBe(DAY_ZERO_KEYS);
+    expect(availableKeys(undefined, [], NOW)).toBe(DAY_ZERO_KEYS);
+    expect(availableKeys('', [], NOW)).toBe(DAY_ZERO_KEYS);
+  });
+
+  it('anchors on the earliest unlock, not the first one listed', () => {
+    // Unsorted input must not change where the ledger starts.
+    const shuffled = ['2026-09-22', '2026-09-18', '2026-09-20'];
+    const sorted   = ['2026-09-18', '2026-09-20', '2026-09-22'];
+    expect(availableKeys(null, shuffled, NOW))
+      .toBe(availableKeys(null, sorted, NOW));
+    expect(availableKeys(null, shuffled, NOW))
+      .toBe(availableKeys('2026-09-18', shuffled, NOW));
+  });
+
+  it('ignores unparseable dates when choosing the anchor', () => {
+    const withJunk = ['not-a-date', '2026-09-20', ''];
+    expect(availableKeys(null, withJunk, NOW))
+      .toBe(availableKeys('2026-09-20', ['2026-09-20'], NOW));
+  });
+
+  it('keeps regenerating over time rather than staying drained', () => {
+    const dates = ['2026-09-20', '2026-09-20', '2026-09-20'];
+    const sameDay = availableKeys(null, dates, new Date('2026-09-20T10:00:00Z'));
+    const twoDays = availableKeys(null, dates, new Date('2026-09-22T10:00:00Z'));
+    expect(sameDay).toBe(0);
+    expect(twoDays).toBeGreaterThan(sameDay);
+  });
+});

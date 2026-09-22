@@ -15,6 +15,7 @@
 import type * as NotificationsType from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
 
 const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
 
@@ -151,6 +152,69 @@ export function magnitudeHook(value: number | undefined): string | null {
   if (whole >= 100_000)       return `Today’s number has ${digits} digits.`;
   if (whole >= 1_000)         return 'Today’s number is in the thousands.';
   return null;
+}
+
+/**
+ * A structured daily body, in the shape a sleep or activity app uses.
+ *
+ * Android collapses a notification to one line and expands it on a pull, so
+ * the first line has to stand alone while the rest rewards opening it. A
+ * single sentence wastes that second state entirely — which is what the copy
+ * did before, whether expanded or not.
+ *
+ * Every row is a fact this app already holds. Nothing is padded to fill the
+ * shape: a row with nothing true to say is left out rather than given a
+ * placeholder, so three rows means three real things.
+ */
+export function buildDigest(person: NotificationPersonalisation | undefined): string | null {
+  if (!person) return null;
+  const rows: string[] = [];
+
+  if (person.dayProjection) rows.push(`Body · ${toDigestRow(person.dayProjection)}`);
+
+  if (typeof person.keysAvailable === 'number' && person.keysAvailable > 0) {
+    const k = person.keysAvailable;
+    rows.push(
+      person.keysAtCap
+        ? `Keys · ${k} ready, and no more will stack`
+        : `Keys · ${k} ready, next in ${formatTimeUntilNextKey()}`,
+    );
+  }
+
+  if (typeof person.streak === 'number' && person.streak > 0) {
+    rows.push(`Streak · ${person.streak} ${person.streak === 1 ? 'day' : 'days'}, today not counted yet`);
+  }
+
+  if (person.unvisitedPlace) rows.push(`Saved · ${person.unvisitedPlace}, still not visited`);
+
+  // Two rows is the minimum that reads as a digest rather than a stray line.
+  return rows.length >= 2 ? rows.slice(0, 4).join('\n') : null;
+}
+
+/**
+ * Rewrite a projection sentence into a digest row.
+ *
+ * The standalone sentence and the labelled row want different grammar —
+ * "Your heart will beat about 67,200 more times before midnight" is right on
+ * its own and wrong after "Body · ". Rewriting the whole phrase rather than
+ * trimming a prefix is what keeps the row readable; trimming left fragments
+ * like "about 67,200 more times before midnight", which names no subject at
+ * all.
+ */
+const ROW_FORMS: [RegExp, string][] = [
+  [/^Your heart will beat about ([\d,]+) more times.*$/, 'about $1 heartbeats left today'],
+  [/^You have roughly ([\d,]+) breaths left.*$/,         'roughly $1 breaths left today'],
+  [/^You will blink around ([\d,]+) more times.*$/,      'around $1 blinks left today'],
+  [/^About ([\d,]+) steps are still ahead.*$/,           'about $1 steps still ahead'],
+  [/^Another ([\d.]+) hours of screen time.*$/,          '$1h of screen time left, on average'],
+];
+
+function toDigestRow(line: string): string {
+  for (const [pattern, form] of ROW_FORMS) {
+    if (pattern.test(line)) return line.replace(pattern, form);
+  }
+  // Unknown phrasing: keep the sentence whole rather than mangle it.
+  return line.replace(/\.$/, '');
 }
 
 const STAT_TITLES = [
@@ -339,15 +403,17 @@ export async function scheduleGatiNotifications(
    * so every further day throws one away. That is real loss, not invented
    * urgency, and it is the one message worth interrupting someone for.
    */
+  const digest = buildDigest(person);
+
   if (atCap && keys > 0) {
     title = `${keys} keys, and they have stopped stacking`;
-    body  = 'You earn one a day up to three. At three, tomorrow’s is lost.';
+    body  = digest ?? 'You earn one a day up to three. At three, tomorrow’s is lost.';
   } else if (streak >= 14) {
     title = `${streak} days without missing one`;
-    body  = person?.dayProjection ?? magnitude ?? 'Today has not been counted yet.';
+    body  = digest ?? person?.dayProjection ?? magnitude ?? 'Today has not been counted yet.';
   } else if (streak >= 7) {
     title = `Day ${streak}`;
-    body  = magnitude ?? pickByDay(STREAK_BODIES, 2);
+    body  = digest ?? magnitude ?? pickByDay(STREAK_BODIES, 2);
   } else if (streak >= 3) {
     title = `Day ${streak} in a row`;
     body  = magnitude
@@ -357,7 +423,7 @@ export async function scheduleGatiNotifications(
     // big the number waiting in the app is. Both true, both about them, and
     // neither gives the number away.
     title = person.dayProjection;
-    body  = magnitude;
+    body  = digest ?? magnitude;
   } else if (person?.dayProjection) {
     title = person.dayProjection;
     body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 3);

@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { CountUpText } from '@/components/ui';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { NumberCard } from '@/hooks/useNumbers';
+import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
 import { Text } from '@/components/ui/Text';
 
 interface UnlockSheetProps {
@@ -118,28 +119,59 @@ export function UnlockSheet({
               <Text style={styles.teaser}>{card.teaser}</Text>
               {card.source ? <Text style={styles.source}>{card.source}</Text> : null}
 
-              <View style={styles.costRow}>
-                <Ionicons name="key" size={13} color={colors.green700} />
-                <Text style={styles.costText}>
-                  Costs 1 key · {keysLeft === 1 ? '1 left' : `${keysLeft} left`}
-                </Text>
-              </View>
+              {/* With no key to spend there is nothing to confirm.
+                  Previously this still read "Costs 1 key · 0 left" above a
+                  live "Open this number" button, and tapping it called
+                  redeemKey, got refused by the balance check, and closed the
+                  sheet without a word — an offer the app could not honour,
+                  followed by silence. Say when the key arrives instead. */}
+              {keysLeft < 1 ? (
+                <>
+                  <View style={styles.waitRow}>
+                    <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
+                    <Text style={styles.waitText}>
+                      Next key in {formatTimeUntilNextKey()}
+                    </Text>
+                  </View>
+                  <Text style={styles.waitBody}>
+                    One key arrives every day. This number keeps counting
+                    either way — it will be bigger when you open it.
+                  </Text>
+                  <Pressable
+                    style={styles.primaryBtn}
+                    onPress={onDismiss}
+                    android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.primaryText}>Got it</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <View style={styles.costRow}>
+                    <Ionicons name="key" size={13} color={colors.green700} />
+                    <Text style={styles.costText}>
+                      Costs 1 key · {keysLeft === 1 ? '1 left' : `${keysLeft} left`}
+                    </Text>
+                  </View>
 
-              <Pressable
-                style={styles.primaryBtn}
-                onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  onConfirm();
-                }}
-                android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${card.definition.title} using one key`}
-              >
-                <Text style={styles.primaryText}>Open this number</Text>
-              </Pressable>
-              <Pressable style={styles.ghostBtn} onPress={onDismiss} accessibilityRole="button">
-                <Text style={styles.ghostText}>Not this one</Text>
-              </Pressable>
+                  <Pressable
+                    style={styles.primaryBtn}
+                    onPress={() => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      onConfirm();
+                    }}
+                    android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${card.definition.title} using one key`}
+                  >
+                    <Text style={styles.primaryText}>Open this number</Text>
+                  </Pressable>
+                  <Pressable style={styles.ghostBtn} onPress={onDismiss} accessibilityRole="button">
+                    <Text style={styles.ghostText}>Not this one</Text>
+                  </Pressable>
+                </>
+              )}
             </>
           )}
         </Animated.View>
@@ -243,6 +275,26 @@ const styles = StyleSheet.create({
     backgroundColor:   colors.green50,
     borderWidth:       1,
     borderColor:       colors.green100,
+  },
+  waitRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing[2],
+    marginTop:     spacing[2],
+  },
+  waitText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   12,
+    color:      colors.textSecondary,
+  },
+  waitBody: {
+    fontFamily: fontFamily.regular,
+    fontSize:   13,
+    lineHeight: 19,
+    color:      colors.textMuted,
+    textAlign:  'center',
+    marginTop:  spacing[1],
+    marginBottom: spacing[2],
   },
   costText: {
     fontFamily: fontFamily.semiBold,

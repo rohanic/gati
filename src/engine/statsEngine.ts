@@ -216,3 +216,63 @@ export function projectRestOfDay(
 
   return options[Math.abs(Math.trunc(variant)) % options.length];
 }
+
+// ─── Where today sits ─────────────────────────────────────────
+export interface DayContext {
+  /** 1-based day of the calendar year. */
+  dayOfYear:    number;
+  /** 365, or 366 in a leap year. */
+  daysInYear:   number;
+  /** Days remaining after today. */
+  daysLeft:     number;
+  /** 0–100, one decimal. */
+  percentOfYear: number;
+  /** IANA zone as the device reports it, e.g. "Asia/Kolkata". */
+  timeZone:     string;
+  /** The city portion of the zone, e.g. "Kolkata". Null when unavailable. */
+  place:        string | null;
+}
+
+/**
+ * Where the user is, and how far through the year they are.
+ *
+ * Deliberately built from the device's own clock and IANA zone rather than
+ * from location. It needs no permission, no network and no stored
+ * coordinate, so it costs nothing against the Data Safety declaration —
+ * and for an app about counting, "day 266 of 366" is more on-topic than a
+ * temperature would be.
+ *
+ * Reads the zone defensively: `resolvedOptions().timeZone` is specified but
+ * has returned undefined on some Android builds, and a crash on the home
+ * screen is a poor trade for a subtitle.
+ */
+export function getDayContext(now: Date = new Date()): DayContext {
+  const year       = now.getFullYear();
+  const startOfYear = new Date(year, 0, 1);
+  const isLeap     = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInYear = isLeap ? 366 : 365;
+
+  // Compare calendar days, not elapsed ms — a DST shift inside the year
+  // would otherwise move the boundary by an hour and round the wrong way.
+  const startDay = Date.UTC(year, 0, 1);
+  const today    = Date.UTC(year, now.getMonth(), now.getDate());
+  const dayOfYear = Math.floor((today - startDay) / 86_400_000) + 1;
+
+  let timeZone = 'UTC';
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    // Keep the default.
+  }
+  const tail  = timeZone.split('/').pop() ?? '';
+  const place = tail && tail !== timeZone ? tail.replace(/_/g, ' ') : null;
+
+  return {
+    dayOfYear,
+    daysInYear,
+    daysLeft:      Math.max(0, daysInYear - dayOfYear),
+    percentOfYear: Math.round((dayOfYear / daysInYear) * 1000) / 10,
+    timeZone,
+    place,
+  };
+}
