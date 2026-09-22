@@ -42,7 +42,7 @@ character counts already verified against Play's limits.
 
 | Field | Value |
 |---|---|
-| App name | `Gati: Numbers & Wanders` — 23/30 |
+| App name | `Gati: Life Numbers & Wanders` — 28/30 |
 | Short description | 72/80 |
 | Full description | 2924/4000 |
 | App icon | `store/graphics/icon-512.png` |
