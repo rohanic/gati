@@ -51,7 +51,7 @@ import { computeLifeStats, projectRestOfDay, getDayContext } from '@/engine/stat
 import { getUpcomingMilestonePrediction, type MilestoneCheckParams } from '@/engine/milestoneEngine';
 import { getBridgeForStat } from '@/engine/statPlaceBridge';
 import { formatTimeUntilNextKey, MAX_BANKED_KEYS } from '@/engine/unlockEngine';
-import { scorePlace } from '@/engine/wanderEngine';
+import { scorePlace, pickWanderNudge } from '@/engine/wanderEngine';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
 import { Text } from '@/components/ui/Text';
@@ -340,6 +340,12 @@ export default function TodayScreen() {
     // demo pool would name somewhere that does not exist near them.
     const unvisited = places.find((p) => p.isSaved && !p.isVisited && !p.isSample);
 
+    // Chosen by the same relevance model the Wander tab ranks with, so the
+    // notification and the screen never disagree about what is worth seeing.
+    const wanderNudge = pickWanderNudge(
+      places, categoryScores, profile.interestCategories ?? [],
+    );
+
     refreshNotificationsOnOpen(profile.notificationTime, {
       name:             profile.firstName,
       streak,
@@ -357,11 +363,19 @@ export default function TodayScreen() {
         Math.floor(Date.now() / 86_400_000),
       ) ?? undefined,
       unvisitedPlace:   unvisited?.name,
+      wanderPick:       wanderNudge
+        ? {
+            name:          wanderNudge.place.name,
+            distanceLabel: wanderNudge.distanceLabel,
+            reason:        wanderNudge.reason,
+            rating:        wanderNudge.place.rating,
+          }
+        : undefined,
       keysAvailable:    summary.available,
       keysAtCap:        summary.available >= MAX_BANKED_KEYS,
     }, serverPushEnabled);
   }, [profile, streak, serverPushEnabled, suggestion?.definition, suggestion?.value,
-      places, summary.available]);
+      places, categoryScores, summary.available]);
 
   useEffect(() => {
     if (!profile || serverPushEnabled) return;

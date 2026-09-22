@@ -6,7 +6,7 @@
  * and the rotating feed window.
  */
 import type { WanderPlace, InterestCategory } from '@/types';
-import { relevanceScore } from '@/engine/relevance';
+import { relevanceScore, explainRelevance, relevanceReason } from '@/engine/relevance';
 
 // ─── Place scoring ────────────────────────────────────────────────────
 /**
@@ -228,3 +228,109 @@ export function filterByCategory(
   if (category === 'all') return places;
   return places.filter((p) => p.category === category);
 }
+
+// ─── Notification pick ────────────────────────────────────────────────
+export interface WanderNudge {
+  place:  WanderPlace;
+  /** Why this one, phrased from the user's own behaviour. */
+  reason: string;
+  /** "600 m" / "1.4 km". */
+  distanceLabel: string;
+}
+
+/**
+ * How near a place must be to be described as nearby.
+ *
+ * Tighter than the search radius on purpose. A notification that names a
+ * place is making a stronger claim than a list is, and "there is somewhere
+ * good 9 km away" is not a reason to put your shoes on.
+ */
+const NUDGE_MAX_KM = 2;
+
+/**
+ * How stale a place may be before its distance stops meaning anything.
+ *
+ * `distanceKm` is measured once, when the place is fetched, against wherever
+ * the user was then. That is the only distance the app has — it never stores
+ * a coordinate, so it cannot recompute later. A fortnight-old figure could
+ * be from another city, so places older than this are not offered.
+ */
+const NUDGE_MAX_AGE_DAYS = 3;
+
+/**
+ * Pick one place worth interrupting someone for, or nothing.
+ *
+ * Returning null is a real outcome and the common one. A nudge naming a
+ * mediocre place 8 km away teaches people to swipe these away, which costs
+ * far more than the nudge was ever worth.
+ */
+export function pickWanderNudge(
+  places:         readonly WanderPlace[],
+  categoryScores: Record<string, number>,
+  userInterests:  InterestCategory[],
+  now:            Date = new Date(),
+): WanderNudge | null {
+  const cutoff = new Date(now.getTime() - NUDGE_MAX_AGE_DAYS * 86_400_000)
+    .toISOString().slice(0, 10);
+
+  const candidates = places.filter((p) =>
+    // Demo places are invented, with hand-written distances. Naming one in a
+    // notification would send someone to a place that does not exist.
+    !p.isSample &&
+    !p.isVisited &&
+    p.distanceKm > 0 &&
+    p.distanceKm <= NUDGE_MAX_KM &&
+    (p.discoveredDate ?? '') >= cutoff,
+  );
+  if (candidates.length === 0) return null;
+
+  const best = candidates.reduce((a, b) =>
+    relevanceScore(b, categoryScores, userInterests, now) >
+    relevanceScore(a, categoryScores, userInterests, now) ? b : a,
+  );
+
+  return {
+    place: best,
+    reason: nudgeReason(best, categoryScores, userInterests, now),
+    distanceLabel: best.distanceKm < 1
+      ? `${Math.round(best.distanceKm * 1000)} m`
+      : `${best.distanceKm.toFixed(1)} km`,
+  };
+}
+
+/**
+ * Why this place, in terms of what the user has actually done.
+ *
+ * Prefers the learned taste score over anything else: "you keep choosing
+ * cafés" is a statement about them, and a suggestion that explains itself
+ * from their own behaviour is far harder to dismiss than one that asserts a
+ * place is good.
+ */
+function nudgeReason(
+  place:          WanderPlace,
+  categoryScores: Record<string, number>,
+  userInterests:  InterestCategory[],
+  now:            Date,
+): string {
+  const label = CATEGORY_LABELS[place.category] ?? place.category;
+  const score = categoryScores[place.category] ?? 1;
+
+  // A score above the 1.0 baseline can only come from the user rating places
+  // in this category well, so this is earned rather than assumed.
+  const top = Object.entries(categoryScores)
+    .sort(([, a], [, b]) => b - a)[0];
+  if (score >= 1.4 && top?.[0] === place.category) {
+    return `You rate ${label} higher than anything else`;
+  }
+  if (score >= 1.3) return `You keep choosing ${label}`;
+  if (userInterests.includes(place.category)) return `One of the ${label} you asked for`;
+
+  const b = explainRelevance(place, categoryScores, userInterests, now);
+  return relevanceReason(b, place) ?? `${label}, and you have not been`;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  food: 'places to eat', cafe: 'cafés', history: 'historic places',
+  nature: 'green spaces', art: 'art places', market: 'markets',
+  nightlife: 'nightlife', books: 'bookshops',
+};

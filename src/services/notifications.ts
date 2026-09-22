@@ -185,7 +185,15 @@ export function buildDigest(person: NotificationPersonalisation | undefined): st
     rows.push(`Streak · ${person.streak} ${person.streak === 1 ? 'day' : 'days'}, today not counted yet`);
   }
 
-  if (person.unvisitedPlace) rows.push(`Saved · ${person.unvisitedPlace}, still not visited`);
+  if (person.wanderPick) {
+    const w = person.wanderPick;
+    rows.push(
+      `Nearby · ${w.name}, ${w.distanceLabel} from your last search` +
+      (w.rating > 0 ? ` · ${w.rating.toFixed(1)}★` : ''),
+    );
+  } else if (person.unvisitedPlace) {
+    rows.push(`Saved · ${person.unvisitedPlace}, still not visited`);
+  }
 
   // Two rows is the minimum that reads as a digest rather than a stray line.
   return rows.length >= 2 ? rows.slice(0, 4).join('\n') : null;
@@ -342,6 +350,17 @@ export interface NotificationPersonalisation {
   /** Title of a place the user saved and never visited. */
   unvisitedPlace?: string;
   /**
+   * A nearby place worth naming, chosen by the Wander relevance model, with
+   * the reason drawn from the user's own rating history.
+   *
+   * The distance is quoted as "from your last search" rather than as a live
+   * figure. It was measured when the place was fetched, against wherever the
+   * user was then; the app stores no coordinate and cannot recompute it, and
+   * a notification fires hours later. Saying where it was measured from is
+   * the difference between a true statement and a guess.
+   */
+  wanderPick?: { name: string; distanceLabel: string; reason: string; rating: number };
+  /**
    * One sentence about what is still going to happen to this person before
    * midnight, computed on-device from their own profile.
    *
@@ -432,6 +451,12 @@ export async function scheduleGatiNotifications(
     // specific fact about the size of their own number.
     title = magnitude;
     body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 3);
+  } else if (person?.wanderPick) {
+    // The reason is a statement about the reader — "you rate cafés higher
+    // than anything else" — which is a far stronger opener than any claim
+    // the app could make about the place itself.
+    title = person.wanderPick.reason;
+    body  = digest ?? `${person.wanderPick.name} is ${person.wanderPick.distanceLabel} from your last search.`;
   } else if (place) {
     // No number worth teasing — point them at something they chose themselves.
     title = `You saved ${place}`;
