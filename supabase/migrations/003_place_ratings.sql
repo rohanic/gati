@@ -25,23 +25,27 @@ alter table place_ratings enable row level security;
 
 -- Users can read any ratings (needed so the materialized view refresh works
 -- and clients can query aggregate data without a service-role key)
+drop policy if exists "place_ratings_select_authenticated" on place_ratings;
 create policy "place_ratings_select_authenticated"
   on place_ratings for select
   to authenticated
   using (true);
 
 -- Users can only write their own ratings
+drop policy if exists "place_ratings_insert_own" on place_ratings;
 create policy "place_ratings_insert_own"
   on place_ratings for insert
   to authenticated
   with check (auth.uid() = user_id);
 
+drop policy if exists "place_ratings_update_own" on place_ratings;
 create policy "place_ratings_update_own"
   on place_ratings for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "place_ratings_delete_own" on place_ratings;
 create policy "place_ratings_delete_own"
   on place_ratings for delete
   to authenticated

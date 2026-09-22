@@ -24,6 +24,7 @@ create table if not exists public.push_tokens (
 
 alter table public.push_tokens enable row level security;
 
+drop policy if exists "push_tokens_own" on public.push_tokens;
 create policy "push_tokens_own"
   on public.push_tokens for all
   using  (auth.uid() = user_id)
@@ -49,6 +50,7 @@ create index if not exists scheduled_pushes_fire_at_idx
 
 alter table public.scheduled_pushes enable row level security;
 
+drop policy if exists "scheduled_pushes_own" on public.scheduled_pushes;
 create policy "scheduled_pushes_own"
   on public.scheduled_pushes for all
   using  (auth.uid() = user_id)

@@ -49,11 +49,13 @@ create table if not exists public.story_annotations (
 alter table public.user_data        enable row level security;
 alter table public.story_annotations enable row level security;
 
+drop policy if exists "user_data_own" on public.user_data;
 create policy "user_data_own"
   on public.user_data for all
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "story_annotations_own" on public.story_annotations;
 create policy "story_annotations_own"
   on public.story_annotations for all
   using  (auth.uid() = user_id)
