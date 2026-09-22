@@ -61,3 +61,11 @@ supabase/.temp/
 # is supplied to EAS as a file environment variable instead of committed.
 # See app.config.js and docs/launch-checklist.md.
 google-services.json
+
+# Firebase Admin SDK / FCM V1 service-account keys. These are real private
+# keys — unlike google-services.json, which merely ships in the APK. Firebase
+# names them "<project>-firebase-adminsdk-<id>-<hash>.json", matching none of
+# the patterns above. This repo is public; one mis-drop would be a live
+# incident.
+*firebase-adminsdk*.json
+*-adminsdk-*.json

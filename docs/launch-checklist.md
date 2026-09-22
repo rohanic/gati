@@ -120,13 +120,33 @@ silently dead notifications.
 
 **b. Upload the FCM V1 service-account key.** Firebase → Project settings →
 Cloud Messaging → enable **Firebase Cloud Messaging API (V1)**. Then Service
-accounts → Generate new private key, and:
+accounts → Generate new private key.
+
+That downloaded file is a real private key — unlike `google-services.json`,
+which is designed to ship inside the APK. Keep it **outside the repository**.
+`.gitignore` now also covers `*firebase-adminsdk*.json` and `*-adminsdk-*.json`,
+because Firebase names these files in a way that matched none of the existing
+credential patterns, and this repository is public.
 
 ```bash
 eas credentials
 ```
 
-→ Android → production → Push Notifications → upload that JSON.
+→ **Android** → **production** → **Push Notifications (FCM V1)** → *Upload a
+new FCM V1 service account key* → give it the path to that file.
+
+> Two different things in that menu are called a Google service account key:
+>
+> | Menu entry | What it is |
+> |---|---|
+> | **Push Notifications (FCM V1)** | ← the Firebase key you just downloaded |
+> | Google Service Account (submissions) | a *Play Console* key for `eas submit`, a different file entirely |
+>
+> Picking the wrong one is the usual reason push stays dead after a
+> seemingly successful upload.
+
+Once EAS has it, the local copy is no longer needed — delete it. Firebase can
+mint another at any time.
 
 > FCM lives in a different Cloud project (`397188050184`) from the OAuth
 > client and Places key (`160901593596`). That is fine — nothing is shared
