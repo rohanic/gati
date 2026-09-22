@@ -104,9 +104,19 @@ the builder — and `app.config.js` would take its warning branch and ship a
 release with push silently disabled.
 
 ```bash
-eas env:create --scope project --name GOOGLE_SERVICES_JSON \
-  --type file --visibility secret --value ./google-services.json
+eas env:set --name GOOGLE_SERVICES_JSON \
+  --type file --visibility secret --scope project \
+  --value ./google-services.json \
+  --environment production --environment preview --environment development \
+  --non-interactive
 ```
+
+`env:create` is deprecated in favour of `env:set`. The `--environment` flags
+matter: without them the command opens an interactive multi-select and exits
+with "No environments selected" if you press enter. All three are listed
+because a preview APK needs push to work the same way a production build
+does — a variable set only on `production` leaves internal testers with
+silently dead notifications.
 
 **b. Upload the FCM V1 service-account key.** Firebase → Project settings →
 Cloud Messaging → enable **Firebase Cloud Messaging API (V1)**. Then Service

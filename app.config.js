@@ -55,8 +55,9 @@ module.exports = ({ config }) => {
       '        download google-services.json to the project root →\n' +
       '        eas credentials → Android → Push Notifications → upload the FCM V1 key.\n' +
       '   For EAS builds it must also be registered as a file env var:\n' +
-      '        eas env:create --scope project --name GOOGLE_SERVICES_JSON \\\n' +
-      '          --type file --visibility secret --value ./google-services.json\n' +
+      '        eas env:set --name GOOGLE_SERVICES_JSON --type file \\\n' +
+      '          --visibility secret --scope project --value ./google-services.json \\\n' +
+      '          --environment production --environment preview --non-interactive\n' +
       '   See docs/launch-checklist.md.\n',
     );
   }
