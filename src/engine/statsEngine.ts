@@ -147,3 +147,72 @@ export function formatStatCompact(value: number): string {
   if (value >= 10_000)        return `${(value / 1_000).toFixed(0)}K`;
   return Math.floor(value).toLocaleString('en-US');
 }
+
+// ─── Rest-of-day projection ───────────────────────────────────
+/**
+ * What is still going to happen to this person before midnight.
+ *
+ * ── Why this exists, and why it is not weather ───────────────
+ * The obvious way to make a notification feel current is to reach for
+ * outside context — local weather, what is on in their city. All of it
+ * requires sending the user's location to a server and keeping it there,
+ * which would contradict the Data Safety declaration this app ships with
+ * ("approximate location, processed ephemerally, never stored against a
+ * user") and turn a one-line copy change into a privacy-policy change.
+ *
+ * The user's own body is a better source and costs nothing. Everything
+ * below is computed on the device from the profile they already gave during
+ * onboarding — no permission, no network, no new data leaving the phone —
+ * and it is strictly more personal than a temperature.
+ *
+ * Computed from a fixed hour rather than "now" on purpose: local
+ * notifications bake their text at SCHEDULING time and fire hours or days
+ * later, so a projection measured from the moment of scheduling would be
+ * wrong every time it actually appeared. Measuring from the delivery hour
+ * makes the sentence true whenever it fires.
+ *
+ * @param fromHour  Local hour the line will be read at, 0–23.
+ * @returns A complete sentence, or null when too little of the day is left
+ *   for any figure to be interesting.
+ */
+export function projectRestOfDay(
+  profile: UserProfile,
+  fromHour: number,
+  variant = 0,
+): string | null {
+  if (!Number.isFinite(fromHour) || fromHour < 0 || fromHour > 23) return null;
+  const hoursLeft = 24 - fromHour;
+  // Under two hours there is nothing left worth projecting, and the figures
+  // stop sounding impressive.
+  if (hoursLeft < 2) return null;
+
+  const minutesLeft = hoursLeft * 60;
+  const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+
+  // Waking hours only, for anything the body does while up and about.
+  const sleepHours  = profile.sleepHoursPerNight ?? 8;
+  const awakeLeft   = Math.max(0, hoursLeft - sleepHours);
+  const exFactor    = EXERCISE_FACTOR[profile.exerciseFrequency] ?? 1;
+  const wakingHours = Math.max(1, 24 - sleepHours);
+
+  const options: string[] = [
+    `Your heart will beat about ${fmt(minutesLeft * 70)} more times before midnight.`,
+    `You have roughly ${fmt(minutesLeft * 16)} breaths left in today.`,
+    `You will blink around ${fmt(minutesLeft * 10)} more times today.`,
+  ];
+
+  if (awakeLeft > 1) {
+    options.push(
+      `About ${fmt((awakeLeft / wakingHours) * 8_000 * exFactor)} steps are still ahead of you today.`,
+    );
+    const phoneHours = profile.phoneHoursPerDay ?? 4;
+    const phoneLeft  = (awakeLeft / wakingHours) * phoneHours;
+    if (phoneLeft >= 0.5) {
+      options.push(
+        `Another ${phoneLeft.toFixed(1)} hours of screen time is the average rest-of-day for you.`,
+      );
+    }
+  }
+
+  return options[Math.abs(Math.trunc(variant)) % options.length];
+}

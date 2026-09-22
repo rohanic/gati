@@ -47,7 +47,7 @@ import {
   scheduleMilestonePrediction,
   scheduleServerMilestonePush,
 } from '@/services/notifications';
-import { computeLifeStats } from '@/engine/statsEngine';
+import { computeLifeStats, projectRestOfDay } from '@/engine/statsEngine';
 import { getUpcomingMilestonePrediction, type MilestoneCheckParams } from '@/engine/milestoneEngine';
 import { getBridgeForStat } from '@/engine/statPlaceBridge';
 import { formatTimeUntilNextKey, MAX_BANKED_KEYS } from '@/engine/unlockEngine';
@@ -346,6 +346,15 @@ export default function TodayScreen() {
       nextStatId:       next?.id,
       // Passed for its size, never printed — see magnitudeHook.
       nextStatValue:    suggestion?.value,
+      // Measured from the hour the notification will be READ at, not from
+      // now — the text is baked at scheduling time and fires later, so a
+      // projection from "now" would be wrong every time it appeared.
+      dayProjection:    projectRestOfDay(
+        profile,
+        Number(profile.notificationTime.split(':')[0]),
+        // Rotate daily so consecutive days do not repeat the same body fact.
+        Math.floor(Date.now() / 86_400_000),
+      ) ?? undefined,
       unvisitedPlace:   unvisited?.name,
       keysAvailable:    summary.available,
       keysAtCap:        summary.available >= MAX_BANKED_KEYS,

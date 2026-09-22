@@ -277,6 +277,15 @@ export interface NotificationPersonalisation {
   nextStatValue?: number;
   /** Title of a place the user saved and never visited. */
   unvisitedPlace?: string;
+  /**
+   * One sentence about what is still going to happen to this person before
+   * midnight, computed on-device from their own profile.
+   *
+   * This is deliberately where "local context" comes from instead of weather
+   * or city data: it needs no location, no network and no new declaration,
+   * and it is more personal than either.
+   */
+  dayProjection?: string;
   /** Keys available right now. */
   keysAvailable?: number;
   /** True when the key bank is full, so further days accrue nothing. */
@@ -335,7 +344,7 @@ export async function scheduleGatiNotifications(
     body  = 'You earn one a day up to three. At three, tomorrow’s is lost.';
   } else if (streak >= 14) {
     title = `${streak} days without missing one`;
-    body  = magnitude ?? 'Today has not been counted yet.';
+    body  = person?.dayProjection ?? magnitude ?? 'Today has not been counted yet.';
   } else if (streak >= 7) {
     title = `Day ${streak}`;
     body  = magnitude ?? pickByDay(STREAK_BODIES, 2);
@@ -343,6 +352,15 @@ export async function scheduleGatiNotifications(
     title = `Day ${streak} in a row`;
     body  = magnitude
       ?? pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 2);
+  } else if (person?.dayProjection && magnitude) {
+    // The best pairing available: what is still ahead of them today, and how
+    // big the number waiting in the app is. Both true, both about them, and
+    // neither gives the number away.
+    title = person.dayProjection;
+    body  = magnitude;
+  } else if (person?.dayProjection) {
+    title = person.dayProjection;
+    body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 3);
   } else if (magnitude) {
     // The strongest opener for someone with no streak to protect: a true,
     // specific fact about the size of their own number.
