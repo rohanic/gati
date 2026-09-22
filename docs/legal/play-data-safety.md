@@ -13,7 +13,31 @@ so each answer below cites where it comes from.
 ## Is all of the user data collected by your app encrypted in transit?
 
 **Yes** — every network call is HTTPS (Supabase, Google Places via our server,
-Expo push, Google Play Billing).
+Expo push, Google Play Billing). Verified by scanning `src`, `app` and
+`supabase/functions` for `http://` endpoints: none exist outside localhost.
+
+## Which methods of account creation does your app support?
+
+Tick exactly these two:
+
+- ☑ **Username and other authentication** — email plus a 6-digit one-time
+  code (`supabase.auth.signInWithOtp` → `verifyOtp`)
+- ☑ **OAuth** — Sign in with Google through the system browser
+  (`signInWithGoogle`, PKCE code exchange)
+
+Do **not** tick anything containing "password". There is no password in this
+app: `authStore.ts` implements only `signInWithOtp`, `verifyOtp` and
+`signInWithGoogle`, and no screen ever collects or stores one. Ticking a
+password option would describe an attack surface the app does not have.
+
+Do not tick "My app does not allow users to create an account" either —
+signing in for the first time creates one, even though it is optional.
+
+## Additional badges
+
+- **Independent security review** — No. This is for an audit against a
+  recognised standard (MASA). Claiming it without one is a policy violation.
+- **UPI Payments verified** — No. Not a finance app, no UPI.
 
 ## Do you provide a way for users to request that their data be deleted?
 
