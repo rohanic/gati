@@ -21,13 +21,29 @@ const path = require('path');
  * it is not.
  */
 module.exports = ({ config }) => {
-  const googleServices = path.resolve(__dirname, 'google-services.json');
-  const hasFirebase = fs.existsSync(googleServices);
+  /**
+   * Two places the file can come from, checked in this order:
+   *
+   *   1. GOOGLE_SERVICES_JSON — set by EAS as a *file* environment variable,
+   *      whose value is the path it wrote the file to on the build machine.
+   *   2. The project root, for local builds.
+   *
+   * The env var is not an optional nicety. This repository is public, so
+   * google-services.json is gitignored — and EAS Build derives its upload
+   * from what git tracks, so an ignored file simply never reaches the
+   * builder. Without the env var the build would succeed, take the warning
+   * branch below, and ship a release with push silently disabled.
+   */
+  const fromEnv = process.env.GOOGLE_SERVICES_JSON;
+  const local   = path.resolve(__dirname, 'google-services.json');
+  const resolved =
+    fromEnv && fs.existsSync(fromEnv) ? fromEnv :
+    fs.existsSync(local)              ? local  : null;
 
-  if (hasFirebase) {
+  if (resolved) {
     config.android = {
       ...config.android,
-      googleServicesFile: './google-services.json',
+      googleServicesFile: resolved,
     };
   } else {
     // Printed on every config resolve (start, prebuild, eas build) so it
@@ -38,6 +54,9 @@ module.exports = ({ config }) => {
       '   Fix: Firebase console → add an Android app with package com.gati.numberswanders →\n' +
       '        download google-services.json to the project root →\n' +
       '        eas credentials → Android → Push Notifications → upload the FCM V1 key.\n' +
+      '   For EAS builds it must also be registered as a file env var:\n' +
+      '        eas env:create --scope project --name GOOGLE_SERVICES_JSON \\\n' +
+      '          --type file --visibility secret --value ./google-services.json\n' +
       '   See docs/launch-checklist.md.\n',
     );
   }

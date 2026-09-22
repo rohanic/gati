@@ -56,3 +56,8 @@ play-service-account.json
 
 # Supabase CLI local state (project ref, cached versions) — machine-specific
 supabase/.temp/
+
+# Firebase — contains an Android API key. This repo is public, so the file
+# is supplied to EAS as a file environment variable instead of committed.
+# See app.config.js and docs/launch-checklist.md.
+google-services.json

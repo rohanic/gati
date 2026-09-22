@@ -91,14 +91,39 @@ Set it before creating the cron jobs, and use the same value in their
 supabase secrets set CRON_SECRET="$(openssl rand -hex 32)"
 ```
 
-### 4. `google-services.json` is missing
+### 4. FCM credentials not yet uploaded to EAS
 
-Push tokens register and report success; nothing is delivered. `app.config.js`
-warns loudly at build time rather than shipping silently broken push.
+`google-services.json` is in place — Firebase project `gati-e4404`, package
+`com.gati.numberswanders`, verified by `npm run verify:backend`. Two steps
+remain.
 
-Firebase console → add an Android app with package `com.gati.numberswanders` → download
-`google-services.json` to the project root → `eas credentials` → Android →
-Push Notifications → upload the FCM V1 key.
+**a. Register it as an EAS file env var.** The file is gitignored because
+this repository is public and it carries an Android API key. EAS Build
+derives its upload from what git tracks, so an ignored file never reaches
+the builder — and `app.config.js` would take its warning branch and ship a
+release with push silently disabled.
+
+```bash
+eas env:create --scope project --name GOOGLE_SERVICES_JSON \
+  --type file --visibility secret --value ./google-services.json
+```
+
+**b. Upload the FCM V1 service-account key.** Firebase → Project settings →
+Cloud Messaging → enable **Firebase Cloud Messaging API (V1)**. Then Service
+accounts → Generate new private key, and:
+
+```bash
+eas credentials
+```
+
+→ Android → production → Push Notifications → upload that JSON.
+
+> FCM lives in a different Cloud project (`397188050184`) from the OAuth
+> client and Places key (`160901593596`). That is fine — nothing is shared
+> between them — but keep it in mind when hunting for a setting.
+
+Until (b) is done, the app falls back to **local** notifications, which work.
+Server push only affects signed-in users.
 
 ### 5. Google sign-in redirect allow-list
 
