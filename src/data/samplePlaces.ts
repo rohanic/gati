@@ -224,5 +224,10 @@ export function getInitialWanderPlaces(): WanderPlace[] {
     userRating: null,
     visitedDate: null,
     gatiScore:  null,
+    // These are illustrative, with fixed coordinates and hand-written
+    // distances. Flagging them here — at the only place they are turned into
+    // WanderPlaces — is what stops the UI showing "1.2 km away" for a place
+    // that is nowhere near the user.
+    isSample:   true,
   }));
 }

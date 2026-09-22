@@ -41,7 +41,8 @@ import * as Location from 'expo-location';
 import { CategoryChips, PlaceCard } from '@/components/wander';
 import type { WanderCategory } from '@/components/wander';
 import { Collapsible } from '@/components/ui';
-import { useWanderStore, useUserStore, FREE_SAVE_LIMIT } from '@/store/userStore';
+import * as Haptics from 'expo-haptics';
+import { useWanderStore, useUserStore, FREE_SAVE_LIMIT, RADIUS_OPTIONS_KM } from '@/store/userStore';
 import { getInitialWanderPlaces } from '@/data/samplePlaces';
 import { fetchNearbyPlaces, haversineKm, PlacesRateLimitedError } from '@/services/placesService';
 import { getUnifiedPersonalizedFeed, isInterestMatch } from '@/engine/wanderEngine';
@@ -264,6 +265,8 @@ export default function WanderScreen() {
   const [fetchingPlaces, setFetchingPlaces]         = useState(false);
   const [fetchedThisSession, setFetchedThisSession] = useState(false);
   const [usingFallback, setUsingFallback]           = useState(false);
+  const searchRadiusKm    = useWanderStore((st) => st.searchRadiusKm);
+  const setSearchRadiusKm = useWanderStore((st) => st.setSearchRadiusKm);
   const [rateLimited,   setRateLimited]             = useState(false);
   const [refreshing, setRefreshing]                 = useState(false);
   const [lastFetchedAt, setLastFetchedAt]           = useState<Date | null>(null);
@@ -362,7 +365,11 @@ export default function WanderScreen() {
       const { latitude, longitude } = pos.coords;
       lastFetchCoordsRef.current = { lat: latitude, lon: longitude };
 
-      const real = await fetchNearbyPlaces(latitude, longitude);
+      const real = await fetchNearbyPlaces(
+        latitude,
+        longitude,
+        useWanderStore.getState().searchRadiusKm * 1000,
+      );
       if (real.length > 0) {
         mergeRealPlaces(real);
         fetchedRef.current = true;
@@ -695,6 +702,44 @@ export default function WanderScreen() {
           autoCapitalize="none"
           accessibilityLabel="Search Wander places"
         />
+      </View>
+
+      {/* ── Search radius ──
+          Wander's most common complaint is a result that is technically
+          nearby and practically useless. Rather than pick one radius for
+          everyone, let the user say how far they are willing to go: a dense
+          city wants 2 km, a small town needs 25. Changing it refetches. */}
+      <View style={styles.radiusRow}>
+        <Ionicons name="resize-outline" size={13} color={colors.textMuted} />
+        <Text style={styles.radiusLabel}>Within</Text>
+        {RADIUS_OPTIONS_KM.map((km) => {
+          const active = km === searchRadiusKm;
+          return (
+            <Pressable
+              key={km}
+              onPress={() => {
+                if (km === searchRadiusKm) return;
+                Haptics.selectionAsync();
+                setSearchRadiusKm(km);
+                // The previous results were bounded by the old radius, so
+                // they are wrong either way now — widen or narrow, refetch.
+                fetchedRef.current = false;
+                if (locationGranted) loadRealPlaces(true);
+              }}
+              style={[styles.radiusChip, active && styles.radiusChipActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Search within ${km} kilometres`}
+            >
+              <Text
+                style={[styles.radiusChipText, active && styles.radiusChipTextActive]}
+                maxFontSizeMultiplier={1.3}
+              >
+                {km} km
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* ── Category chips ── */}
@@ -1035,6 +1080,38 @@ const styles = StyleSheet.create({
   content: { paddingTop: spacing[2] },
 
   section: { marginTop: spacing[5] },
+
+  radiusRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing[2],
+    paddingHorizontal: spacing[5],
+    paddingBottom:     spacing[3],
+  },
+  radiusLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize:   12,
+    color:      colors.textMuted,
+    marginRight: spacing[1],
+  },
+  radiusChip: {
+    paddingHorizontal: spacing[3],
+    paddingVertical:   spacing[1] + 2,
+    borderRadius:      radius.full,
+    borderWidth:       1,
+    borderColor:       colors.border,
+    backgroundColor:   colors.surface,
+  },
+  radiusChipActive: {
+    backgroundColor: colors.green700,
+    borderColor:     colors.green700,
+  },
+  radiusChipText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   11,
+    color:      colors.textSecondary,
+  },
+  radiusChipTextActive: { color: colors.white },
 
   // Section header
   sectionHeader: {

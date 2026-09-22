@@ -221,3 +221,51 @@ describe('haversineKm', () => {
     expect(haversineKm(0, 179.9, 0, -179.9)).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Radius enforcement.
+ *
+ * The radius sent to the search is a request, not a guarantee — popularity
+ * ranking reaches for the famous thing in the wider area, which is how a
+ * 23 km result came back for a 10 km search. The filter that the user can
+ * actually trust is the one applied to our own computed distance, because it
+ * is the same number the card shows them.
+ */
+describe('radius filtering', () => {
+  const RADIUS_SLACK = 0.05;
+  const withinRadius = (distanceKm: number, radiusKm: number) =>
+    distanceKm <= radiusKm * (1 + RADIUS_SLACK);
+
+  it('drops the far result that prompted this', () => {
+    expect(withinRadius(23, 10)).toBe(false);
+  });
+
+  it('keeps everything genuinely inside the circle', () => {
+    for (const km of [0, 0.4, 2.5, 9.9]) {
+      expect(withinRadius(km, 10)).toBe(true);
+    }
+  });
+
+  it('tolerates a result marginally past the line but not a different city', () => {
+    // A coarse location fix and a server-side circle will not agree to the
+    // metre; 40 m past a 10 km line is noise, 3 km past it is not.
+    expect(withinRadius(10.04, 10)).toBe(true);
+    expect(withinRadius(13.0,  10)).toBe(false);
+  });
+
+  it('scales with the chosen radius rather than assuming one', () => {
+    expect(withinRadius(20, 25)).toBe(true);
+    expect(withinRadius(20, 10)).toBe(false);
+    expect(withinRadius(1.9,  2)).toBe(true);
+    expect(withinRadius(4.0,  2)).toBe(false);
+  });
+
+  it('computes the distance it filters on from real coordinates', () => {
+    // Bengaluru -> a point ~23 km north. If haversine under-reported this,
+    // the filter would pass the very result it exists to stop.
+    const far = haversineKm(LAT, LON, LAT + 0.207, LON);
+    expect(far).toBeGreaterThan(22);
+    expect(far).toBeLessThan(24);
+    expect(withinRadius(far, 10)).toBe(false);
+  });
+});

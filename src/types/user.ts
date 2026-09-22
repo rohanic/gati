@@ -86,6 +86,13 @@ export interface WanderPlace {
   openNow:        boolean | null;
   /** Crowd-sourced Gati quality score from place_quality_scores (0–1). Null if < 1 rating exists. */
   gatiScore:      number | null;
+  /**
+   * True for the built-in demo places shown when a real search is
+   * unavailable. These are illustrative, not real recommendations, and their
+   * coordinates are fixed — so `distanceKm` on them is meaningless and must
+   * never be presented as a distance from the user.
+   */
+  isSample?:      boolean;
 }
 
 export interface TimelineEntry {

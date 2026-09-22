@@ -50,7 +50,7 @@ import {
 import { computeLifeStats } from '@/engine/statsEngine';
 import { getUpcomingMilestonePrediction, type MilestoneCheckParams } from '@/engine/milestoneEngine';
 import { getBridgeForStat } from '@/engine/statPlaceBridge';
-import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
+import { formatTimeUntilNextKey, MAX_BANKED_KEYS } from '@/engine/unlockEngine';
 import { scorePlace } from '@/engine/wanderEngine';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
@@ -270,7 +270,7 @@ function NumberLeadsHere({
         <Text style={styles.bridgeContext} numberOfLines={2}>{contextLine}</Text>
         <Text style={styles.bridgeName} numberOfLines={1}>{place.name}</Text>
         <Text style={styles.bridgeMeta} numberOfLines={1}>
-          {place.distanceKm} km away
+          {place.isSample ? 'Example place' : `${place.distanceKm.toFixed(1)} km away`}
           {place.rating > 0 ? ` · ${place.rating.toFixed(1)}★` : ''}
         </Text>
       </View>
@@ -332,13 +332,26 @@ export default function TodayScreen() {
   useEffect(() => {
     if (!profile) return;
     const next = suggestion?.definition;
+
+    // A place the user chose to save and has not been to. Named in the
+    // notification, so the nudge is about something they already wanted
+    // rather than a generic prompt to go outside. Real places only — the
+    // demo pool would name somewhere that does not exist near them.
+    const unvisited = places.find((p) => p.isSaved && !p.isVisited && !p.isSample);
+
     refreshNotificationsOnOpen(profile.notificationTime, {
       name:             profile.firstName,
       streak,
       nextStatCategory: next?.category,
       nextStatId:       next?.id,
+      // Passed for its size, never printed — see magnitudeHook.
+      nextStatValue:    suggestion?.value,
+      unvisitedPlace:   unvisited?.name,
+      keysAvailable:    summary.available,
+      keysAtCap:        summary.available >= MAX_BANKED_KEYS,
     }, serverPushEnabled);
-  }, [profile, streak, serverPushEnabled, suggestion?.definition]);
+  }, [profile, streak, serverPushEnabled, suggestion?.definition, suggestion?.value,
+      places, summary.available]);
 
   useEffect(() => {
     if (!profile || serverPushEnabled) return;

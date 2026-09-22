@@ -26,15 +26,26 @@ import { format } from 'date-fns';
 
 // ─── Constants ────────────────────────────────────────────────
 /**
- * Search radius.
+ * Fallback search radius, used only when no caller supplies one.
  *
- * Reduced from 8 km. Google ranks its own results by popularity WITHIN the
- * radius, so a wide net returns the most famous places in the whole disc —
- * which is how a museum across the city displaced the good café down the
- * street before Gati's own ranking ever ran. 5 km still covers a short drive
- * while keeping the returned set genuinely local.
+ * Google ranks its own results by popularity WITHIN the radius, so a wide net
+ * returns the most famous places in the whole disc — which is how a museum
+ * across the city displaced the good café down the street before Gati's own
+ * ranking ever ran. The radius is now the user's choice
+ * (`useWanderStore.searchRadiusKm`); this constant is the default they start
+ * on and the floor for any caller that forgets to pass one.
  */
-const SEARCH_RADIUS_M = 5000;
+const SEARCH_RADIUS_M = 10_000;
+
+/**
+ * Tolerance on the radius filter, as a fraction.
+ *
+ * The server's radius is a request, not a guarantee — the Places API can
+ * return a result marginally outside the circle, and our own distance is
+ * computed from a coarse fix. Rejecting a place 40 m past a 10 km line would
+ * be pedantic; rejecting one at 23 km is the whole point.
+ */
+const RADIUS_SLACK = 0.05;
 const MAX_PER_CAT     = 10;    // top 10 per category from the ranked pool
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -351,7 +362,27 @@ export async function fetchNearbyPlaces(
     return [];
   }
 
-  const places = buildWanderPlaces(raw, lat, lon, format(new Date(), 'yyyy-MM-dd'));
+  const all = buildWanderPlaces(raw, lat, lon, format(new Date(), 'yyyy-MM-dd'));
+
+  /**
+   * Enforce the radius a SECOND time, here, against our own distance.
+   *
+   * The radius sent to the search is only a request. Results have come back
+   * well outside it — a 23 km museum for a 10 km search — because popularity
+   * ranking reaches for the famous thing in the wider area. Filtering on the
+   * distance we computed ourselves is the only version the user can trust,
+   * since it is the same number the card will show them.
+   */
+  const limitKm = (radiusM / 1000) * (1 + RADIUS_SLACK);
+  const places  = all.filter((p) => p.distanceKm <= limitKm);
+
+  if (__DEV__ && places.length < all.length) {
+    const worst = Math.max(...all.map((p) => p.distanceKm));
+    console.warn(
+      `[placesService] dropped ${all.length - places.length}/${all.length} result(s) ` +
+      `outside the ${radiusM / 1000} km radius (furthest was ${worst.toFixed(1)} km).`,
+    );
+  }
   if (places.length === 0) return [];
 
   // Attach crowd-sourced Gati scores — best effort, degrades to null.

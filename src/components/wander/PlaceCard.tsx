@@ -312,9 +312,13 @@ export function PlaceCard({
     else onSave(place.placeId);
   };
 
-  const distanceLabel = place.distanceKm < 1
-    ? `${Math.round(place.distanceKm * 1000)} m`
-    : `${place.distanceKm.toFixed(1)} km`;
+  // Demo places carry a hand-written distance from a fixed coordinate, so it
+  // is not a distance from the user and must not be shown as one.
+  const distanceLabel = place.isSample
+    ? 'Example'
+    : place.distanceKm < 1
+      ? `${Math.round(place.distanceKm * 1000)} m`
+      : `${place.distanceKm.toFixed(1)} km`;
 
   return (
     <Animated.View style={[styles.container, cardStyle]}>

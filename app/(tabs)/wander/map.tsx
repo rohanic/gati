@@ -243,11 +243,13 @@ export default function MapScreen() {
     );
   }, [place]);
 
-  const distanceLabel = place
-    ? place.distanceKm < 1
-      ? `${Math.round(place.distanceKm * 1000)} m away`
-      : `${place.distanceKm.toFixed(1)} km away`
-    : null;
+  const distanceLabel = !place
+    ? null
+    : place.isSample
+      ? 'Example place'
+      : place.distanceKm < 1
+        ? `${Math.round(place.distanceKm * 1000)} m away`
+        : `${place.distanceKm.toFixed(1)} km away`;
 
   return (
     <View style={styles.root}>

@@ -112,7 +112,46 @@ export function configureNotificationHandler(): void {
 }
 
 // ─── Copy: daily stat ─────────────────────────────────────────
-// Curiosity-gap titles hint at the category without giving it away.
+/**
+ * What changed here, and why.
+ *
+ * The old copy was all tease and no substance — "A new number is ready",
+ * "Curiosity rewarded. One tap away." Nothing in it was about the person
+ * reading it, so every day's notification was interchangeable with every
+ * other day's, which is precisely how a notification trains someone to swipe
+ * it away without reading.
+ *
+ * The replacement leads with something TRUE and SPECIFIC to that user on that
+ * day, while still protecting the reveal:
+ *
+ *   • the size of the number ("ten digits", "in the billions") — derived from
+ *     their real figure, spoils nothing, and is far more arresting than an
+ *     adjective
+ *   • the state of their key bank, which carries genuine loss (keys stop
+ *     accruing at the cap, so a full bank is a countdown to waste)
+ *   • a place they saved themselves and never went to, by name
+ *
+ * Specificity is doing the work, not urgency. Nothing below claims anything
+ * that is not true at the moment it fires.
+ */
+
+/**
+ * Describe how big a number is without saying what it is.
+ *
+ * Digit count is the sweet spot: concrete enough to be genuinely surprising
+ * — most people have never considered that a fact about them runs to ten
+ * digits — and useless for guessing which stat it belongs to.
+ */
+export function magnitudeHook(value: number | undefined): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return null;
+  const whole  = Math.floor(value);
+  const digits = String(whole).length;
+  if (whole >= 1_000_000_000) return `Today’s number runs to ${digits} digits.`;
+  if (whole >= 1_000_000)     return 'Today’s number is in the millions.';
+  if (whole >= 100_000)       return `Today’s number has ${digits} digits.`;
+  if (whole >= 1_000)         return 'Today’s number is in the thousands.';
+  return null;
+}
 
 const STAT_TITLES = [
   'Your number for today',
@@ -124,16 +163,11 @@ const STAT_TITLES = [
 ];
 
 const STAT_BODIES = [
-  'Some of these stop people mid-scroll. Today’s might.',
-  'A number you’ve never thought to count, until now.',
-  'A new life stat is waiting. Some of them are surprising.',
-  'Your body has been keeping score. Today’s tally is ready.',
-  'Some of these are harder to shake than you’d expect.',
-  'Open to see what today’s number says about you.',
-  'One stat from the story of your life.',
-  'The number is there. Curious what it is?',
-  'Counting the things most people never count.',
-  'Curiosity rewarded. One tap away.',
+  'One number from your life that nobody has ever counted for you.',
+  'It has been adding up since the day you were born.',
+  'You produced this figure without once thinking about it.',
+  'Everything in it already happened. You just have not seen the total.',
+  'The counting is done. The number is waiting.',
 ];
 
 const CATEGORY_HOOKS: Record<string, string[]> = {
@@ -164,12 +198,11 @@ const CATEGORY_HOOKS: Record<string, string[]> = {
 };
 
 const STREAK_BODIES = [
-  'You’ve shown up every day. Don’t stop now.',
-  'Your streak is still alive, but not for much longer.',
-  'Every day matters. One tap keeps the chain.',
-  'Don’t break the chain. Today’s number is waiting.',
-  'Still here. Your streak is safe, for now.',
-  'The hardest part is not breaking a perfect record.',
+  'Today has not been counted yet.',
+  'One number keeps it going.',
+  'The chain holds until midnight.',
+  'It takes one tap to keep.',
+  'Still unbroken. Today is the only day that can change that.',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -233,6 +266,21 @@ export interface NotificationPersonalisation {
   nextStatCategory?: string;
   /** Tomorrow's stat id, so a tap deep-links straight to it. */
   nextStatId?: string;
+  /**
+   * The actual figure behind the next number.
+   *
+   * Used for its SIZE, never printed — see `magnitudeHook`. A notification
+   * that says "today's number has ten digits" is specific and true and still
+   * leaves the reveal intact; one that prints the figure has given away the
+   * only thing the user was going to open the app for.
+   */
+  nextStatValue?: number;
+  /** Title of a place the user saved and never visited. */
+  unvisitedPlace?: string;
+  /** Keys available right now. */
+  keysAvailable?: number;
+  /** True when the key bank is full, so further days accrue nothing. */
+  keysAtCap?: boolean;
 }
 
 // ─── Public API ───────────────────────────────────────────────
@@ -269,15 +317,41 @@ export async function scheduleGatiNotifications(
   let title: string;
   let body:  string;
 
-  if (streak >= 14) {
-    title = `${streak} days in a row`;
-    body  = 'A rare streak. Today’s number is waiting.';
+  const magnitude = magnitudeHook(person?.nextStatValue);
+  const keys      = person?.keysAvailable ?? 0;
+  const atCap     = person?.keysAtCap === true;
+  const place     = person?.unvisitedPlace;
+
+  /**
+   * Priority order, most-at-stake first.
+   *
+   * A full key bank goes above everything because it is the only case where
+   * waiting actively costs the user something: keys stop accruing at the cap,
+   * so every further day throws one away. That is real loss, not invented
+   * urgency, and it is the one message worth interrupting someone for.
+   */
+  if (atCap && keys > 0) {
+    title = `${keys} keys, and they have stopped stacking`;
+    body  = 'You earn one a day up to three. At three, tomorrow’s is lost.';
+  } else if (streak >= 14) {
+    title = `${streak} days without missing one`;
+    body  = magnitude ?? 'Today has not been counted yet.';
   } else if (streak >= 7) {
-    title = `Day ${streak}: keep it going`;
-    body  = 'A week straight. Open to see today’s stat.';
+    title = `Day ${streak}`;
+    body  = magnitude ?? pickByDay(STREAK_BODIES, 2);
   } else if (streak >= 3) {
     title = `Day ${streak} in a row`;
-    body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 2);
+    body  = magnitude
+      ?? pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 2);
+  } else if (magnitude) {
+    // The strongest opener for someone with no streak to protect: a true,
+    // specific fact about the size of their own number.
+    title = magnitude;
+    body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 3);
+  } else if (place) {
+    // No number worth teasing — point them at something they chose themselves.
+    title = `You saved ${place}`;
+    body  = 'And never went. It is still there.';
   } else {
     title = pickByDay(STAT_TITLES);
     body  = pickByDay((category ? CATEGORY_HOOKS[category] : undefined) ?? STAT_BODIES, 3);
@@ -318,7 +392,9 @@ export async function scheduleGatiNotifications(
   await N.scheduleNotificationAsync({
     identifier: NOTIF_STREAK,
     content: {
-      title: streak >= 3 ? `${streak}-day streak. Don’t stop now` : 'Keep your streak going',
+      title: streak >= 3
+        ? `${streak} days. Today is not counted yet`
+        : 'Today is not counted yet',
       body:  pickByDay(STREAK_BODIES, 7),
       sound: false,
       data:  { type: 'streak_saver' },

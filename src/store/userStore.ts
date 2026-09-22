@@ -684,6 +684,15 @@ interface WanderState {
   places:               WanderPlace[];
   categoryScores:       Record<string, number>;
   interestsInitialized: boolean;
+  /**
+   * How far Wander is allowed to look, in kilometres.
+   *
+   * Google ranks by popularity WITHIN whatever radius it is given, so a wide
+   * search returns the most famous places in the whole disc rather than the
+   * good ones nearby. This is the user's own ceiling on that, and it is
+   * enforced twice: sent to the search, and applied again to the results.
+   */
+  searchRadiusKm:       number;
 
   addPlace:        (place: WanderPlace) => void;
   /** Bulk insert — one store write instead of one per place. */
@@ -705,7 +714,13 @@ interface WanderState {
   resetInterestScores: (interests: InterestCategory[]) => void;
   /** Restore learned taste scores from a backup, clamped to a safe range. */
   importCategoryScores: (scores: Record<string, number>) => void;
+  setSearchRadiusKm:    (km: number) => void;
 }
+
+/** Offered radii, in kilometres. 10 is the default — near enough to walk or
+ *  ride to, wide enough that a quiet neighbourhood still returns results. */
+export const RADIUS_OPTIONS_KM = [2, 5, 10, 25, 50] as const;
+export const DEFAULT_RADIUS_KM = 10;
 
 const DEFAULT_SCORES: Record<string, number> = {
   food: 1.0, cafe: 1.0, history: 1.0, nature: 1.0,
@@ -719,6 +734,7 @@ export const useWanderStore = create<WanderState>()(
       places:               [],
       categoryScores:       DEFAULT_SCORES,
       interestsInitialized: false,
+      searchRadiusKm:       DEFAULT_RADIUS_KM,
 
       addPlace: (place) => get().addPlaces([place]),
 
@@ -886,10 +902,15 @@ export const useWanderStore = create<WanderState>()(
           }
           return { categoryScores: next };
         }),
+
+      setSearchRadiusKm: (km) =>
+        set(() => ({
+          searchRadiusKm: Math.min(50, Math.max(1, Math.round(km))),
+        })),
     }),
     {
       name:    'gati-wander',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ _hasHydrated, ...rest }) => rest,
       onRehydrateStorage: () => () => {
@@ -908,15 +929,27 @@ export const useWanderStore = create<WanderState>()(
        */
       migrate: (persisted, fromVersion) => {
         const s = (persisted ?? {}) as Partial<WanderState>;
+        let next = s;
         if (fromVersion < 1) {
-          return {
-            ...s,
-            places:               Array.isArray(s.places) ? s.places : [],
-            categoryScores:       { ...DEFAULT_SCORES, ...(s.categoryScores ?? {}) },
-            interestsInitialized: s.interestsInitialized ?? false,
-          } as WanderState;
+          next = {
+            ...next,
+            places:               Array.isArray(next.places) ? next.places : [],
+            categoryScores:       { ...DEFAULT_SCORES, ...(next.categoryScores ?? {}) },
+            interestsInitialized: next.interestsInitialized ?? false,
+          };
         }
-        return s as WanderState;
+        // v1 → v2: searchRadiusKm added. Anyone upgrading has never chosen
+        // one, so they get the default rather than an undefined that would
+        // reach the search as NaN.
+        if (fromVersion < 2) {
+          next = {
+            ...next,
+            searchRadiusKm: typeof next.searchRadiusKm === 'number'
+              ? next.searchRadiusKm
+              : DEFAULT_RADIUS_KM,
+          };
+        }
+        return next as WanderState;
       },
     },
   ),
