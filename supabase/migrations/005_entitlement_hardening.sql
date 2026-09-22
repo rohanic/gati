@@ -230,6 +230,24 @@ comment on function public.get_users_for_local_notification_hour() is
 
 -- Keep the streak / digest helpers but return the time zone too, so those
 -- functions can also respect local days rather than UTC days.
+--
+-- These must be DROPPED, not replaced. 002 defined both without the
+-- time_zone column, and `create or replace function` cannot change a
+-- return type — Postgres rejects it with 42P13, "Row type defined by OUT
+-- parameters is different". Replacing in place works only while the
+-- signature is untouched; adding a column to the returned table is exactly
+-- the case it refuses.
+--
+-- Neither function carries an explicit grant, so dropping loses nothing,
+-- and both are recreated in the same transaction: no window exists where a
+-- caller could find them missing.
+-- Superseded by get_users_for_local_notification_hour above, which respects
+-- the user's own time zone. Nothing calls the UTC version any more, and
+-- leaving a security-definer function that hands out push tokens on a UTC
+-- schedule is a footgun for whoever wires up the next scheduled job.
+drop function if exists public.get_users_for_notification_hour(integer);
+
+drop function if exists public.get_users_for_streak_check();
 create or replace function public.get_users_for_streak_check()
 returns table (
   user_id             uuid,
@@ -250,6 +268,7 @@ as $$
   join   public.push_tokens pt on pt.user_id = ud.user_id;
 $$;
 
+drop function if exists public.get_users_for_weekly_digest();
 create or replace function public.get_users_for_weekly_digest()
 returns table (
   user_id             uuid,
