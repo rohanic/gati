@@ -214,11 +214,12 @@ export default function AuthScreen() {
               works without an account, and a skip that reads like a dead end
               would misrepresent that. */}
           <Pressable
-            style={styles.skipBtn}
+            style={[styles.skipBtn, firstRun && styles.skipBtnFirstRun]}
             onPress={firstRun ? leaveFirstRun : () => router.back()}
             accessibilityRole="button"
+            android_ripple={firstRun ? { color: colors.green50 } : undefined}
           >
-            <Text style={styles.skipText}>
+            <Text style={[styles.skipText, firstRun && styles.skipTextFirstRun]}>
               {firstRun ? 'Continue without an account' : 'Skip for now'}
             </Text>
           </Pressable>
@@ -346,10 +347,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
     paddingVertical: spacing[2],
   },
+  /**
+   * On first run this is not a footnote — it is the route into the app for
+   * anyone who does not want an account, which is the majority and is what
+   * the privacy policy and the Play listing both promise.
+   *
+   * It also has to survive a Play reviewer. The App Access declaration says
+   * nothing here is restricted; if the first screen reads as a login wall
+   * and the way past it is 14px of grey text below the fold, that
+   * declaration looks false and the review fails. A real button, above the
+   * legal line, at a 48dp target, is what makes the claim self-evident.
+   */
+  skipBtnFirstRun: {
+    minHeight:       48,
+    justifyContent:  'center',
+    borderRadius:    radius.full,
+    borderWidth:     1.5,
+    borderColor:     colors.green700,
+    backgroundColor: colors.surface,
+    marginTop:       spacing[5],
+  },
   skipText: {
     fontFamily: fontFamily.medium,
     fontSize:   14,
     color:      colors.textSecondary,
+  },
+  skipTextFirstRun: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   15,
+    color:      colors.green700,
   },
 
   legalNote: {

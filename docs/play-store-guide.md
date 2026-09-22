@@ -95,11 +95,33 @@ analytics SDK in `package.json`.
 
 ### Ads → **No, my app does not contain ads**
 
-### App access → **All functionality is available without special access**
+### Sign in details → **No**
 
-The app works fully signed out — sign-in is optional and only syncs to a
-second device. Do **not** give Play test credentials; there is nothing
-behind a login.
+Formerly called "App access". Pick the **No** branch — specifically *"no
+account sign in required and no content requires payment"*.
+
+Verified against the code, not assumed:
+
+| Their bullet | Gati |
+|---|---|
+| account sign in required | **No.** Sign-in is optional and only syncs data to a second device. Every screen and every feature works signed out. |
+| payments / tiers | **No.** `LAUNCH_MODE` is `'free'`, so `IS_FREE_LAUNCH` grants every capability and `showUpgradePrompts` is false — the Pro card does not render and nothing routes to `/pro`. |
+| referral or QR codes | None. |
+| one-time PINs / 2-step | The email OTP is part of the optional sign-in itself, not a gate on any content. |
+| biometric auth | None. |
+| actions on another device | None. |
+
+> **Recheck this before flipping `LAUNCH_MODE` to `'paid'`.** The moment
+> features sit behind a subscription, the honest answer becomes **Yes**, and
+> the declaration has to be updated in the same release. A Data Safety or
+> App Access declaration that does not match behaviour is a policy
+> violation, not a paperwork error.
+
+**The screen a reviewer sees first matters here.** Since the sign-in screen
+now appears straight after the splash, the way past it has to be obvious, or
+a reviewer will read it as a login wall, find no credentials, and reject the
+build against this very declaration. "Continue without an account" is
+therefore a full-width outlined button at a 48dp target, not a text link.
 
 ### Content rating (IARC questionnaire)
 
