@@ -27,7 +27,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const PACKAGE_NAME = 'com.gati.app';
+const PACKAGE_NAME = 'com.gati.numberswanders';
 /**
  * Accepted subscription SKUs.
  *

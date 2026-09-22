@@ -42,7 +42,7 @@ character counts already verified against Play's limits.
 
 | Field | Value |
 |---|---|
-| App name | `Gati: Your Life in Numbers` — 26/30 |
+| App name | `Gati: Numbers & Wanders` — 23/30 |
 | Short description | 72/80 |
 | Full description | 2924/4000 |
 | App icon | `store/graphics/icon-512.png` |
@@ -155,7 +155,7 @@ Deletion URL: `https://creaeza.com/gati-account-deletion` ✅ live.
 | Play App Signing | Required. Accept when Play offers it on first upload. |
 | Target API level | 36 ✅ (`app.json`) |
 | 64-bit | ✅ handled by RN |
-| Package name | `com.gati.app` — **permanent, cannot ever be changed** |
+| Package name | `com.gati.numberswanders` — **permanent once published, cannot ever be changed** |
 | versionCode | 34, `autoIncrement: true` in `eas.json` ✅ |
 
 ```bash

@@ -106,14 +106,14 @@ if (existsSync('google-services.json')) {
   try {
     const g = JSON.parse(readFileSync('google-services.json', 'utf8'));
     const pkgs = (g.client ?? []).map((c) => c?.client_info?.android_client_info?.package_name);
-    pkgs.includes('com.gati.app')
-      ? ok('google-services.json present, package matches com.gati.app')
-      : bad(`google-services.json is for ${pkgs.join(', ') || 'no package'}, not com.gati.app`,
-            'download it again from the Firebase Android app for com.gati.app');
+    pkgs.includes('com.gati.numberswanders')
+      ? ok('google-services.json present, package matches com.gati.numberswanders')
+      : bad(`google-services.json is for ${pkgs.join(', ') || 'no package'}, not com.gati.numberswanders`,
+            'download it again from the Firebase Android app for com.gati.numberswanders');
   } catch { bad('google-services.json is not valid JSON', 're-download it from Firebase'); }
 } else {
   bad('google-services.json missing — tokens register, nothing is delivered',
-      'Firebase → add Android app com.gati.app → download to project root');
+      'Firebase → add Android app com.gati.numberswanders → download to project root');
 }
 note('FCM V1 key upload cannot be checked from here — run: eas credentials');
 

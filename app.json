@@ -17,7 +17,7 @@
       "policy": "fingerprint"
     },
     "android": {
-      "package": "com.gati.app",
+      "package": "com.gati.numberswanders",
       "versionCode": 34,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -62,7 +62,7 @@
             "targetSdkVersion": 36,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class com.gati.app.** { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.facebook.jni.** { *; }\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**\n-keepattributes Signature\n-keepattributes *Annotation*\n-keepattributes SourceFile,LineNumberTable"
+            "extraProguardRules": "-keep class com.gati.numberswanders.** { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.facebook.jni.** { *; }\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**\n-keepattributes Signature\n-keepattributes *Annotation*\n-keepattributes SourceFile,LineNumberTable"
           }
         }
       ],

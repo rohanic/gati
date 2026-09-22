@@ -96,7 +96,7 @@ supabase secrets set CRON_SECRET="$(openssl rand -hex 32)"
 Push tokens register and report success; nothing is delivered. `app.config.js`
 warns loudly at build time rather than shipping silently broken push.
 
-Firebase console → add an Android app with package `com.gati.app` → download
+Firebase console → add an Android app with package `com.gati.numberswanders` → download
 `google-services.json` to the project root → `eas credentials` → Android →
 Push Notifications → upload the FCM V1 key.
 

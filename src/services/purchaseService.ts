@@ -548,7 +548,7 @@ export async function openSubscriptionManagement(productId?: string): Promise<vo
   try {
     await deepLinkToSubscriptions({
       skuAndroid:         productId ?? PRODUCT_IDS.monthly,
-      packageNameAndroid: 'com.gati.app',
+      packageNameAndroid: 'com.gati.numberswanders',
     });
   } catch {
     // Deep link unsupported on this device — caller falls back to a URL.

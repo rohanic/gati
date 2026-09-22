@@ -35,7 +35,7 @@ module.exports = ({ config }) => {
     console.warn(
       '\n⚠️  google-services.json not found — Android push notifications will NOT be delivered.\n' +
       '   The app will still register a push token and report success; nothing will arrive.\n' +
-      '   Fix: Firebase console → add an Android app with package com.gati.app →\n' +
+      '   Fix: Firebase console → add an Android app with package com.gati.numberswanders →\n' +
       '        download google-services.json to the project root →\n' +
       '        eas credentials → Android → Push Notifications → upload the FCM V1 key.\n' +
       '   See docs/launch-checklist.md.\n',

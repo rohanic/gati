@@ -76,7 +76,7 @@ export const SUPPORT_EMAIL: string =
   process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'contact@creaeza.com';
 
 /** Play Store listing, used by the "Rate Gati" action. */
-export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.gati.app';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.gati.numberswanders';
 
 /** Public summary of the Play Data Safety declaration. */
 export const DATA_SAFETY_URL: string =
@@ -92,7 +92,7 @@ export const ACCOUNT_DELETION_URL: string =
 
 /** Play's subscription centre, used as a fallback for managing a subscription. */
 export const PLAY_SUBSCRIPTIONS_URL =
-  'https://play.google.com/store/account/subscriptions?package=com.gati.app';
+  'https://play.google.com/store/account/subscriptions?package=com.gati.numberswanders';
 
 if (__DEV__) {
   if (!IS_CLOUD_CONFIGURED) {

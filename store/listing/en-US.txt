@@ -7,17 +7,24 @@ Main store listing. Character counts are verified below.
 ──────────────────────────────────────────────
 APP NAME  (Play limit: 30 characters)
 ──────────────────────────────────────────────
-Gati: Your Life in Numbers
+Gati: Numbers & Wanders
 
-  Alternates, if the above is taken or you want a different angle:
-    Gati — One Number a Day        (25)
-    Gati: Life in Numbers          (21)
-    Gati: Your Life, Counted       (24)
+  Alternates:
+    Gati: Life Numbers & Places    (27)  ← more search volume
+    Gati: Numbers and Wander       (24)
+    Gati Numbers & Wander          (21)
 
-  Why this one: "Gati" alone is unsearchable — nobody types it.
-  The suffix carries the actual search terms ("life in numbers")
-  without keyword-stuffing, which Play penalises. No emoji, no
-  ALL CAPS, no "#1"/"Best" — all of those are title violations.
+  Why this one: "Gati" alone is unsearchable — nobody types it. The
+  suffix carries both halves of the product and matches the package
+  name, com.gati.numberswanders. No emoji, no ALL CAPS, no "#1"/"Best"
+  — all of those are title violations.
+
+  Worth knowing: "Wander" is the in-app feature name, not a term people
+  search. "Places" would pull more traffic. This title trades some of
+  that for brand consistency, which is a fair trade — but if installs
+  are slower than expected, swapping "Wanders" for "Places" is the
+  first thing to try. The title can be changed at any time; the package
+  name cannot.
 
 ──────────────────────────────────────────────
 SHORT DESCRIPTION  (Play limit: 80 characters)
