@@ -141,15 +141,9 @@ $$;
 --   push-weekly-digest   : '0 9 * * 0'   (Sundays at 09:00 UTC)
 --   push-scheduled       : '0 * * * *'   (every hour — processes scheduled_pushes)
 --
--- /*
--- do $$
--- declare
---   base_url  text := 'https://<PROJECT_REF>.supabase.co/functions/v1/';
---   auth_hdr  text := 'Bearer <SERVICE_ROLE_KEY>';
--- begin
---   perform cron.schedule('gati-daily-stat',    '0 * * * *',  format($q$select net.http_post(url:=%L, headers:=jsonb_build_object('Authorization',%L,'Content-Type','application/json'), body:='{}'::jsonb)$q$, base_url||'push-daily-stat',   auth_hdr));
---   perform cron.schedule('gati-streak-saver',  '0 20 * * *', format($q$select net.http_post(url:=%L, headers:=jsonb_build_object('Authorization',%L,'Content-Type','application/json'), body:='{}'::jsonb)$q$, base_url||'push-streak-saver',  auth_hdr));
---   perform cron.schedule('gati-weekly-digest', '0 9 * * 0',  format($q$select net.http_post(url:=%L, headers:=jsonb_build_object('Authorization',%L,'Content-Type','application/json'), body:='{}'::jsonb)$q$, base_url||'push-weekly-digest', auth_hdr));
---   perform cron.schedule('gati-push-scheduled','0 * * * *',  format($q$select net.http_post(url:=%L, headers:=jsonb_build_object('Authorization',%L,'Content-Type','application/json'), body:='{}'::jsonb)$q$, base_url||'push-scheduled',     auth_hdr));
--- end $$;
--- */
+-- The working version of this lives in supabase/cron-setup.sql, with the
+-- headers it actually needs. The template that used to sit here sent only
+-- `Authorization: Bearer <service key>`, which passes the gateway and is
+-- then rejected by validateCronSecret — so every scheduled push would have
+-- returned 401 while pg_cron recorded the run as succeeded.
+
