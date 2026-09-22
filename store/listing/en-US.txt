@@ -30,11 +30,16 @@ Gati: Life Numbers & Wanders
 ──────────────────────────────────────────────
 SHORT DESCRIPTION  (Play limit: 80 characters)
 ──────────────────────────────────────────────
-One number about your life each day — then somewhere real to go with it.
+One surprising number about your life each day, and a good place near you.
 
   Alternates:
-    Unlock one surprising number about your life a day. Then go somewhere.
-    Your life in 25 numbers. One key a day. One real place to visit.
+    One number about your life each day — then somewhere real to go with it.
+    Your life in 25 numbers. One a day. One good place nearby to take it.
+
+  Carries both halves of the product AND the two things people actually
+  type: "life" numbers, and places "near you". The previous version said
+  "somewhere real to go", which reads well and matches nothing anyone
+  searches for.
 
   This is the line under the icon in search results and the single
   biggest lever on install rate. It should say what happens, not
@@ -73,9 +78,8 @@ lived, full moons you have seen, your exact age to the second.
 Body — heartbeats, breaths taken, steps walked, litres of blood
 pumped, hours slept, full days spent asleep.
 
-Habits — cups of coffee, glasses of water, meals eaten, hours on
-your phone, full days lost to a screen, hours of music, hours
-commuting.
+Habits — cups of coffee, glasses of water, meals eaten, screen time,
+full days lost to your phone, hours of music, hours commuting.
 
 Every figure is built from answers you give during a two-minute
 setup, using published population averages for the things nobody
@@ -85,7 +89,7 @@ which assumptions it used.
 THEN GO SOMEWHERE
 
 A number on a screen is a fact. Gati turns it into a reason to
-leave the house.
+leave the house, by finding good places near you.
 
 Unlock "hours of coffee consumed" and Wander shows you a coffee
 place near you that is actually good and actually close — ranked

@@ -48,11 +48,48 @@ character counts already verified against Play's limits.
 | App icon | `store/graphics/icon-512.png` |
 | Feature graphic | generate per `PROMPTS.md` |
 | Phone screenshots | 6 real captures |
-| **Category** | **Lifestyle** |
-| Tags (pick 5) | Daily habits · Self-discovery · Local discovery · Journaling · Personalisation |
+| **Category** | App (not Game) → **Lifestyle** |
+| Tags | up to 5, from Play's fixed list — see below |
 | Email | `contact@creaeza.com` |
 | Website | `https://creaeza.com` |
 | Phone | leave blank — optional, and publishing one invites spam |
+
+### Tags
+
+Play gives a fixed list per category and up to five picks; you cannot type
+your own. Tags are a browse-and-recommendation signal, not a search one, so
+they do not substitute for the description. Choose the closest available to:
+
+1. **Daily habits / habit tracking** — the core loop
+2. **Self-discovery / personal growth** — what the numbers are for
+3. **Local discovery / places** — Wander
+4. **Journaling / diary** — the Story timeline
+5. **Personalisation** — everything derives from the user's own answers
+
+Avoid anything implying health, fitness or medical — it would contradict the
+Health features declaration, the Data Safety form and the Terms.
+
+### There is no keywords field
+
+Unlike the App Store, Play has nowhere to put keywords. Search is indexed
+from three places only, in descending weight:
+
+| | Weight | Carries |
+|---|---|---|
+| Title, 30 chars | highest | "Life Numbers" |
+| Short description, 80 chars | high | "life", "near you" |
+| Full description, 4000 chars | lower, but it is where breadth lives | everything else |
+
+Stuffing terms into the description is penalised, so the terms have to read
+naturally. Current coverage, verified against the copy:
+
+- **title** — life numbers
+- **short** — near you
+- **full** — screen time, places near, days alive, heartbeats, sleep, streak,
+  every day, coffee, steps, breaths, age, statistics, timeline
+
+`store/listing/en-US.txt` is the source of truth, and its comments record why
+each line is worded the way it is.
 
 ### Do not choose Health & Fitness
 
