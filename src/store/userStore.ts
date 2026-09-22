@@ -171,6 +171,15 @@ interface UserState {
   _hasHydrated:       boolean;
   profile:            UserProfile | null;
   onboardingComplete: boolean;
+  /**
+   * True once the sign-in screen has been offered on first launch.
+   *
+   * The offer is made once and never again. An account is genuinely optional
+   * here — the app is fully usable signed out, and the privacy policy says so
+   * — so re-prompting would be nagging for something the user has already
+   * declined.
+   */
+  authPromptSeen:     boolean;
   /** Supabase user ID — null when signed out. */
   userId:             string | null;
 
@@ -194,6 +203,7 @@ interface UserState {
 
   setProfile:        (profile: UserProfile) => void;
   updateProfile:     (partial: Partial<UserProfile>) => void;
+  markAuthPromptSeen: () => void;
   setOnboardingDone: () => void;
   setUserId:         (id: string | null) => void;
   /** Start the trial. No-op once a device anchor exists, or if already Pro. */
@@ -231,6 +241,7 @@ export const useUserStore = create<UserState>()(
       _hasHydrated:         false,
       profile:              null,
       onboardingComplete:   false,
+      authPromptSeen:       false,
       userId:               null,
       trialStartedAt:       null,
       deviceTrialStartedAt: null,
@@ -246,6 +257,8 @@ export const useUserStore = create<UserState>()(
         })),
 
       setOnboardingDone: () => set({ onboardingComplete: true }),
+
+      markAuthPromptSeen: () => set({ authPromptSeen: true }),
 
       setUserId: (id) => set({ userId: id }),
 
@@ -293,6 +306,7 @@ export const useUserStore = create<UserState>()(
       reset: () => set({
         profile:            null,
         onboardingComplete: false,
+        authPromptSeen:     false,
         userId:             null,
         trialStartedAt:     null,
         isPro:              false,
@@ -303,7 +317,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name:    'gati-user',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ _hasHydrated, ...rest }) => rest,
       onRehydrateStorage: () => () => {
@@ -317,15 +331,22 @@ export const useUserStore = create<UserState>()(
        */
       migrate: (persisted, fromVersion) => {
         const s = (persisted ?? {}) as Partial<UserState>;
+        let next = s;
         if (fromVersion < 2) {
-          return {
-            ...s,
-            proExpiresAt:         s.proExpiresAt ?? null,
-            proProductId:         s.proProductId ?? null,
-            deviceTrialStartedAt: s.deviceTrialStartedAt ?? s.trialStartedAt ?? null,
-          } as UserState;
+          next = {
+            ...next,
+            proExpiresAt:         next.proExpiresAt ?? null,
+            proProductId:         next.proProductId ?? null,
+            deviceTrialStartedAt: next.deviceTrialStartedAt ?? next.trialStartedAt ?? null,
+          };
         }
-        return s as UserState;
+        // v2 → v3: authPromptSeen added. Anyone upgrading is already past
+        // first launch, so treat the prompt as shown — an existing user
+        // should not be sent to a sign-in screen by an update.
+        if (fromVersion < 3) {
+          next = { ...next, authPromptSeen: true };
+        }
+        return next as UserState;
       },
     },
   ),

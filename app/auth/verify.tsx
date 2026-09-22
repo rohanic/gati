@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
+import { useUserStore } from '@/store/userStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { Text } from '@/components/ui/Text';
 
@@ -28,7 +29,9 @@ import { Text } from '@/components/ui/Text';
 const CODE_LENGTH = 6;
 
 export default function VerifyScreen() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, first } = useLocalSearchParams<{ email: string; first?: string }>();
+  const firstRun = first === '1';
+  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
   const [code,       setCode]       = useState('');
   const [loading,    setLoading]    = useState(false);
   const [resending,  setResending]  = useState(false);
@@ -42,8 +45,17 @@ export default function VerifyScreen() {
     setLoading(true);
     try {
       const isFirst = await verifyOtp(email ?? '', code.trim());
-      // First login → show welcome; returning user → dismiss modal
-      isFirst ? router.replace('/auth/welcome') : router.dismissAll();
+      if (isFirst) {
+        router.replace('/auth/welcome');
+      } else if (firstRun) {
+        // Signed in during the first-run offer, but with an account that has
+        // been here before. There is no modal to dismiss — go on to
+        // onboarding, which the restored profile may complete immediately.
+        markAuthPromptSeen();
+        router.replace('/onboarding/welcome');
+      } else {
+        router.dismissAll();
+      }
     } catch (e) {
       setCode('');
       // Refocus on dismiss so the keyboard returns and the user can retype
@@ -56,7 +68,7 @@ export default function VerifyScreen() {
     } finally {
       setLoading(false);
     }
-  }, [code, email, verifyOtp]);
+  }, [code, email, verifyOtp, firstRun, markAuthPromptSeen]);
 
   // Auto-verify when all 6 digits are entered
   const handleCodeChange = useCallback((text: string) => {

@@ -33,6 +33,23 @@ import { registerPushToken, unregisterPushToken } from '@/services/notifications
 // Required for expo-web-browser OAuth redirect handling.
 WebBrowser.maybeCompleteAuthSession();
 
+/**
+ * Raised when Google OAuth fails for a reason the user cannot fix.
+ *
+ * Kept separate from a normal Error so the UI can show the plain sentence
+ * and keep the configuration detail out of the user's way while still
+ * logging it — every one of these used to surface as the button doing
+ * nothing at all.
+ */
+export class GoogleSignInConfigError extends Error {
+  readonly detail: string;
+  constructor(message: string, detail: string) {
+    super(message);
+    this.name   = 'GoogleSignInConfigError';
+    this.detail = detail;
+  }
+}
+
 // ─── State shape ──────────────────────────────────────────────
 
 export interface AuthState {
@@ -127,36 +144,75 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     // On Android, Chrome Custom Tabs deliver the callback through Linking
     // rather than the browser result — register the listener BEFORE opening
     // the browser so the event cannot be missed.
+    //
+    // Match against the redirect URI we actually asked for rather than a
+    // hard-coded "gati://": in a dev client that URI is an exp:// address, so
+    // a hard-coded scheme silently drops every callback outside a release
+    // build and makes sign-in look broken only in development.
     let resolveLink: ((url: string) => void) | null = null;
     const linkingPromise = new Promise<string>((resolve) => { resolveLink = resolve; });
     const sub = Linking.addEventListener('url', ({ url }) => {
-      if (url.startsWith('gati://auth/callback')) resolveLink?.(url);
+      if (url.startsWith(redirectUri) || url.startsWith('gati://auth/callback')) {
+        resolveLink?.(url);
+      }
     });
 
-    let callbackUrl: string | null = null;
+    let callbackUrl:  string | null = null;
+    let userCancelled = false;
     try {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
       if (result.type === 'success') {
         callbackUrl = result.url;
+      } else if (result.type === 'cancel') {
+        // Explicit back-out. Distinct from 'dismiss', which on Android is
+        // also what happens when the redirect closes the Custom Tab.
+        userCancelled = true;
       } else if (Platform.OS === 'android') {
-        // 'dismiss' on Android usually means the redirect already fired.
+        // 'dismiss' usually means the redirect already fired and the tab
+        // closed itself. Wait for the deep link rather than assuming.
+        //
+        // 1.5s was too tight: when the OS has to cold-resume the app the
+        // event can arrive later than that, and the old timeout turned a
+        // successful sign-in into a silent no-op. This only ever waits when
+        // no link has arrived, so a real cancel still returns promptly.
         callbackUrl = await Promise.race([
           linkingPromise,
-          new Promise<null>((r) => setTimeout(() => r(null), 1_500)),
+          new Promise<null>((r) => setTimeout(() => r(null), 4_000)),
         ]);
       }
     } finally {
       sub.remove();
     }
 
-    if (!callbackUrl) return false;   // user cancelled
+    if (userCancelled) return false;
+
+    if (!callbackUrl) {
+      // The browser closed without ever handing back a URL. This is NOT the
+      // same as cancelling, and reporting it as one is why a misconfigured
+      // redirect looks like "tapping the button does nothing".
+      throw new GoogleSignInConfigError(
+        'Google did not send you back to Gati.',
+        `No redirect to ${redirectUri} was received.\n` +
+        'Add it under Supabase → Authentication → URL Configuration → ' +
+        'Redirect URLs, then try again.',
+      );
+    }
 
     const parsed = safeParseUrl(callbackUrl);
     const code   = parsed?.searchParams.get('code');
     if (!code) {
       const errDesc = parsed?.searchParams.get('error_description');
       if (errDesc) throw new Error(errDesc);
-      return false;
+      // Came back, but with no authorisation code — the redirect resolved to
+      // something that is not the OAuth callback. Always a configuration
+      // problem, never a user action.
+      throw new GoogleSignInConfigError(
+        'Google sent Gati back without a sign-in code.',
+        `Returned to: ${parsed?.origin ?? callbackUrl}\n` +
+        'Check that the Google provider\'s redirect URI in Google Cloud is ' +
+        'the Supabase callback, and that gati://auth/callback is allow-listed ' +
+        'in Supabase.',
+      );
     }
 
     const { data: sessionData, error: exchangeError } =

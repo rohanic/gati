@@ -156,3 +156,61 @@ describe('gati-stats v0 → v2', () => {
     expect(out.savedStatIds).toEqual([]);
   });
 });
+
+/**
+ * The two migrations added alongside the first-run sign-in gate and the
+ * Wander radius control. Both change what an EXISTING install sees on the
+ * very next launch, which is the worst place for a mistake.
+ */
+describe('gati-user v2 → v3 (authPromptSeen)', () => {
+  const migrate = (useUserStore as unknown as Migratable).persist.getOptions().migrate!;
+
+  it('never sends an existing user to the sign-in screen', () => {
+    // The gate routes to /auth when authPromptSeen is false. Someone who has
+    // been using Gati for months has already made their choice about an
+    // account; an update must not reopen it.
+    const out = migrate({ onboardingComplete: true }, 2) as { authPromptSeen: boolean };
+    expect(out.authPromptSeen).toBe(true);
+  });
+
+  it('still runs the v2 entitlement work when coming from v0', () => {
+    const out = migrate({ trialStartedAt: '2026-01-01T00:00:00Z' }, 0) as {
+      deviceTrialStartedAt: string | null;
+      authPromptSeen: boolean;
+    };
+    // Chained, not either/or — a v0 payload has to pass through BOTH steps.
+    expect(out.deviceTrialStartedAt).toBe('2026-01-01T00:00:00Z');
+    expect(out.authPromptSeen).toBe(true);
+  });
+
+  it('preserves the profile across the new step', () => {
+    const profile = { firstName: 'Rohan', birthDate: '1995-03-02' };
+    const out = migrate({ profile, onboardingComplete: true }, 2) as { profile: unknown };
+    expect(out.profile).toEqual(profile);
+  });
+});
+
+describe('gati-wander v1 → v2 (searchRadiusKm)', () => {
+  const migrate = (useWanderStore as unknown as Migratable).persist.getOptions().migrate!;
+
+  it('gives an upgrading user the default radius', () => {
+    // Undefined would reach the search as NaN metres.
+    const out = migrate({ places: [], categoryScores: {} }, 1) as { searchRadiusKm: number };
+    expect(out.searchRadiusKm).toBe(10);
+    expect(Number.isFinite(out.searchRadiusKm)).toBe(true);
+  });
+
+  it('keeps a radius the user already chose', () => {
+    const out = migrate({ places: [], searchRadiusKm: 25 }, 1) as { searchRadiusKm: number };
+    expect(out.searchRadiusKm).toBe(25);
+  });
+
+  it('chains through v0 so an old install gets places AND a radius', () => {
+    const out = migrate({ categoryScores: { cafe: 2.0 } }, 0) as {
+      places: unknown[]; searchRadiusKm: number; categoryScores: Record<string, number>;
+    };
+    expect(Array.isArray(out.places)).toBe(true);
+    expect(out.searchRadiusKm).toBe(10);
+    expect(out.categoryScores.cafe).toBe(2.0);
+  });
+});

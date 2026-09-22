@@ -300,7 +300,7 @@ export default function TodayScreen() {
   const categoryScores    = useWanderStore((s) => s.categoryScores);
   const serverPushEnabled = !!useAuthStore((s) => s.userId);
 
-  const { today: openedToday, summary, unlocked } = useNumbers();
+  const { today: openedToday, summary, unlocked, locked } = useNumbers();
   const suggestion   = useSuggestedNumber();
   const openSet      = useOpenDateSet();
   const streak       = useStreak();
@@ -450,6 +450,29 @@ export default function TodayScreen() {
     return { place: best, contextLine };
   }, [openedToday, places, categoryScores, profile]);
 
+  /**
+   * Three sealed numbers to show on day one, excluding whatever the hero
+   * card is already offering so the screen does not repeat itself.
+   *
+   * Spread across categories rather than taken off the top of the list: the
+   * first three all being "time" numbers would make the catalogue look far
+   * narrower than it is.
+   */
+  const firstPicks = useMemo(() => {
+    if (unlocked.length > 0) return [];
+    const heroId = suggestion?.definition.id;
+    const picks: NumberCard[] = [];
+    const seen  = new Set<string>();
+    for (const card of locked) {
+      if (card.definition.id === heroId) continue;
+      if (seen.has(card.definition.category)) continue;
+      seen.add(card.definition.category);
+      picks.push(card);
+      if (picks.length === 3) break;
+    }
+    return picks;
+  }, [locked, unlocked.length, suggestion?.definition.id]);
+
   // ── Header entrance ──
   const headOp = useSharedValue(0);
   const headY  = useSharedValue(-12);
@@ -514,6 +537,59 @@ export default function TodayScreen() {
           onOpen={openSheet}
           onBrowse={() => router.push('/(tabs)/numbers')}
         />
+
+        {/* ── 1b. First run: something to actually look at ──
+            A brand-new account opens Today to a greeting, an empty week
+            strip, one card, and then nothing — every section below is
+            conditional on having opened something. That is the worst
+            possible first impression of an app whose whole pitch is "there
+            are 25 numbers about you in here".
+
+            Rather than pad it, show the product: a few of the sealed
+            numbers with their teasers, tappable straight into the unlock
+            sheet. It fills the screen with the reason to stay AND points at
+            the one action that matters on day one. */}
+        {unlocked.length === 0 && firstPicks.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader title="Start with one of these" icon="sparkles-outline" />
+            <Text style={styles.firstRunNote}>
+              You have {summary.available} {summary.available === 1 ? 'key' : 'keys'}.
+              One more arrives every day, up to {MAX_BANKED_KEYS}.
+            </Text>
+            <View style={styles.recentWrap}>
+              {firstPicks.map((card) => {
+                const cat = getCategoryTheme(card.definition.category);
+                return (
+                  <Pressable
+                    key={card.definition.id}
+                    onPress={() => openSheet(card)}
+                    style={styles.pickRow}
+                    android_ripple={{ color: colors.green50 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${card.definition.title}. ${card.teaser}`}
+                  >
+                    <View style={[styles.recentIcon, { backgroundColor: cat.bg }]}>
+                      <Ionicons
+                        name={card.definition.icon as any}
+                        size={15}
+                        color={cat.deep}
+                      />
+                    </View>
+                    <View style={styles.pickText}>
+                      <Text style={styles.recentTitle} numberOfLines={1}>
+                        {card.definition.title}
+                      </Text>
+                      <Text style={styles.pickTeaser} numberOfLines={2}>
+                        {card.teaser}
+                      </Text>
+                    </View>
+                    <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* ── 2. What you opened today ── */}
         {openedToday.length > 0 && (
@@ -881,6 +957,28 @@ const styles = StyleSheet.create({
   },
 
   // ── Collection ──
+  firstRunNote: {
+    fontFamily:    fontFamily.regular,
+    fontSize:      13,
+    color:         colors.textSecondary,
+    marginBottom:  spacing[3],
+    lineHeight:    19,
+  },
+  pickRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             spacing[3],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+  },
+  pickText:   { flex: 1, gap: 2 },
+  pickTeaser: {
+    fontFamily: fontFamily.regular,
+    fontSize:   12,
+    color:      colors.textMuted,
+    lineHeight: 17,
+  },
+
   recentWrap: {
     backgroundColor: colors.white,
     borderRadius:    radius.xl,

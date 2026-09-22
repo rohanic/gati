@@ -42,6 +42,7 @@ const TRIAL_FEATURES: { icon: string; label: string; desc: string }[] = [
 
 export default function WelcomeScreen() {
   const trialStartedAt = useUserStore((s) => s.trialStartedAt);
+  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
   const daysLeft       = trialDaysLeft(trialStartedAt);
   const trialEndDate   = trialStartedAt
     ? format(addDays(parseISO(trialStartedAt), 7), 'MMM d')
@@ -68,7 +69,14 @@ export default function WelcomeScreen() {
 
   const handleGo = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.dismissAll();
+    // On first run this screen was reached by redirect, not by pushing a
+    // modal, so there is no stack to dismiss — dismissAll() would leave the
+    // user sitting here. Routing back through the root lets it re-decide
+    // from the state the sign-in just restored: a returning account may now
+    // have onboardingComplete set and should land on Today, not onboarding.
+    markAuthPromptSeen();
+    if (router.canDismiss()) router.dismissAll();
+    else router.replace('/');
   };
 
   return (

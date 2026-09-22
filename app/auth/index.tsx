@@ -22,13 +22,30 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { GoogleSignInButton } from '@/components/ui';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, GoogleSignInConfigError } from '@/store/authStore';
+import { useUserStore } from '@/store/userStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { Text } from '@/components/ui/Text';
 
 export default function AuthScreen() {
+  /**
+   * `first=1` means this is the one-time offer shown after the splash, before
+   * onboarding. In that mode there is nothing behind this screen to go back
+   * to, so every exit has to move FORWARD into onboarding rather than call
+   * router.back() on an empty stack.
+   */
+  const { first } = useLocalSearchParams<{ first?: string }>();
+  const firstRun  = first === '1';
+  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
+
+  /** The only way out of the first-run screen: remember it, then continue. */
+  const leaveFirstRun = useCallback(() => {
+    markAuthPromptSeen();
+    router.replace('/onboarding/welcome');
+  }, [markAuthPromptSeen]);
+
   const [email,            setEmail]           = useState('');
   const [loadingEmail,     setLoadingEmail]     = useState(false);
   const [loadingGoogle,    setLoadingGoogle]    = useState(false);
@@ -49,7 +66,10 @@ export default function AuthScreen() {
     setLoadingEmail(true);
     try {
       await signInWithEmail(trimmed);
-      router.push({ pathname: '/auth/verify', params: { email: trimmed } });
+      router.push({
+        pathname: '/auth/verify',
+        params:   { email: trimmed, ...(firstRun ? { first: '1' } : {}) },
+      });
     } catch (e) {
       const raw = (e as Error).message ?? '';
       // Supabase can throw raw HTTP response strings on 5xx errors — show a clean message
@@ -65,7 +85,7 @@ export default function AuthScreen() {
     } finally {
       setLoadingEmail(false);
     }
-  }, [email, signInWithEmail]);
+  }, [email, signInWithEmail, firstRun]);
 
   // ── Google OAuth ────────────────────────────────────────────
   const handleGoogle = useCallback(async () => {
@@ -76,9 +96,21 @@ export default function AuthScreen() {
       // Disambiguate via the session: userId is only set when sign-in completed.
       // Without this, cancelling the browser dismissed the screen as if signed in.
       if (useAuthStore.getState().userId === null) return; // cancelled → stay on screen
-      isFirst ? router.replace('/auth/welcome') : router.back();
+      if (isFirst) router.replace('/auth/welcome');
+      else if (firstRun) router.replace('/onboarding/welcome');
+      else router.back();
     } catch (e) {
-      Alert.alert('Google Sign In failed', (e as Error).message ?? 'Try again.');
+      if (e instanceof GoogleSignInConfigError) {
+        // The setup is wrong, not the user. Say so plainly and log the fix,
+        // rather than leaving the button looking inert.
+        console.warn(`[auth] Google sign-in misconfigured.\n${e.detail}`);
+        Alert.alert(
+          'Could not finish signing in',
+          `${e.message}\n\nYou can use email instead, or continue without an account.`,
+        );
+      } else {
+        Alert.alert('Google Sign In failed', (e as Error).message ?? 'Try again.');
+      }
     } finally {
       setLoadingGoogle(false);
     }
@@ -97,24 +129,37 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Close button ── */}
-          <Pressable
-            style={styles.closeBtn}
-            hitSlop={12}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="close" size={22} color={colors.textSecondary} />
-          </Pressable>
+          {/* ── Close button ──
+              Hidden on first run: there is nothing behind this screen, and an
+              X that leads nowhere is worse than no X. The skip at the bottom
+              is the exit there. */}
+          {!firstRun && (
+            <Pressable
+              style={styles.closeBtn}
+              hitSlop={12}
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </Pressable>
+          )}
 
           {/* ── Header ── */}
           <View style={styles.header}>
             <View style={styles.logoMark}>
               <Ionicons name="leaf" size={26} color={colors.green700} />
             </View>
-            <Text style={styles.headline}>Keep your memories safe</Text>
+            {/* First run has no history to protect yet, so "keep your
+                memories safe" means nothing there. Say what an account is
+                actually for — and that it is optional — before asking. */}
+            <Text style={styles.headline}>
+              {firstRun ? 'Welcome to Gati' : 'Keep your memories safe'}
+            </Text>
             <Text style={styles.subhead}>
-              Sign in to back up your stats, notes, and place history across devices.
-              Your data stays private — only you can see it.
+              {firstRun
+                ? 'An account is optional. Gati works completely without one, and everything stays on your phone. Sign in only if you want your numbers and places to survive a new phone.'
+                : 'Sign in to back up your stats, notes, and place history across devices. Your data stays private — only you can see it.'}
             </Text>
           </View>
 
@@ -164,9 +209,18 @@ export default function AuthScreen() {
             disabled={anyLoading}
           />
 
-          {/* ── Skip ── */}
-          <Pressable style={styles.skipBtn} onPress={() => router.back()}>
-            <Text style={styles.skipText}>Skip for now</Text>
+          {/* ── Skip ──
+              Prominent and plainly worded on first run: the app genuinely
+              works without an account, and a skip that reads like a dead end
+              would misrepresent that. */}
+          <Pressable
+            style={styles.skipBtn}
+            onPress={firstRun ? leaveFirstRun : () => router.back()}
+            accessibilityRole="button"
+          >
+            <Text style={styles.skipText}>
+              {firstRun ? 'Continue without an account' : 'Skip for now'}
+            </Text>
           </Pressable>
 
           <Text style={styles.legalNote}>
