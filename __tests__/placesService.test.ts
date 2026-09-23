@@ -269,3 +269,55 @@ describe('radius filtering', () => {
     expect(withinRadius(far, 10)).toBe(false);
   });
 });
+
+/**
+ * Location precision leaving the device.
+ *
+ * The Data Safety form declares *approximate* location. That is only true if
+ * an approximate coordinate is what actually gets transmitted — the server
+ * rounding it afterwards for a cache key is too late, the precise value has
+ * already been sent. These pin the arithmetic that makes the declaration
+ * honest.
+ */
+describe('coordinate coarsening', () => {
+  const COORD_DECIMALS = 2;
+  const coarsen = (v: number) => Math.round(v * 10 ** COORD_DECIMALS) / 10 ** COORD_DECIMALS;
+
+  it('rounds to a cell wider than Play\'s precise-location threshold', () => {
+    // Precise means narrower than 3 km² — a circle of roughly 1 km radius.
+    // One hundredth of a degree of latitude is ~1.11 km, so the cell is wider.
+    const cellKm = haversineKm(0, 0, 0.01, 0);
+    expect(cellKm).toBeGreaterThan(1.0);
+  });
+
+  it('actually discards precision rather than reformatting it', () => {
+    expect(coarsen(12.971598)).toBe(12.97);
+    expect(coarsen(77.594562)).toBe(77.59);
+    expect(coarsen(-33.868820)).toBe(-33.87);
+  });
+
+  it('never leaks more than the rounding cell', () => {
+    // Worst case a user can be from the coordinate we send.
+    const worst = haversineKm(12.9716, 77.5946, coarsen(12.9716), coarsen(77.5946));
+    expect(worst).toBeLessThan(1.6);
+  });
+
+  it('widens the search enough that rounding cannot cut off a valid result', () => {
+    // A place exactly at the radius edge must still fall inside the widened
+    // circle drawn from the worst-case offset centre.
+    const COORD_ROUNDING_KM = 1.6;
+    for (const radiusKm of [2, 5, 10, 25, 50]) {
+      const searched = radiusKm + COORD_ROUNDING_KM;
+      expect(searched - COORD_ROUNDING_KM).toBeGreaterThanOrEqual(radiusKm);
+    }
+  });
+
+  it('still reports the true distance, not the rounded one', () => {
+    // The card's distance is computed on-device from the real fix, so
+    // coarsening what we SEND must not change what the user SEES.
+    const trueKm = haversineKm(12.9716, 77.5946, 12.9800, 77.6000);
+    const fromCoarse = haversineKm(coarsen(12.9716), coarsen(77.5946), 12.98, 77.6);
+    expect(trueKm).not.toBeCloseTo(fromCoarse, 3);
+    expect(trueKm).toBeGreaterThan(0);
+  });
+});

@@ -46,6 +46,30 @@ const SEARCH_RADIUS_M = 10_000;
  * be pedantic; rejecting one at 23 km is the whole point.
  */
 const RADIUS_SLACK = 0.05;
+
+/**
+ * Decimal places the coordinate is rounded to before it leaves the device.
+ *
+ * 2 dp is ~1.1 km, which is Play's threshold between precise and approximate
+ * location (precise being anything narrower than 3 km², a circle of roughly
+ * 1 km). The Data Safety form declares approximate location, and that
+ * declaration is only true if an approximate coordinate is what actually
+ * gets transmitted — rounding it server-side afterwards would be too late,
+ * the precise value would already have been sent.
+ *
+ * The device keeps its exact position and uses it locally, so nothing the
+ * user sees gets worse: distances on the cards, and the radius filter below,
+ * are both computed from the real fix.
+ */
+const COORD_DECIMALS = 2;
+
+/** Worst-case offset introduced by rounding, in kilometres. */
+const COORD_ROUNDING_KM = 1.6;   // half-diagonal of a 1.1 km × 1.1 km cell
+
+function coarsen(value: number): number {
+  const f = 10 ** COORD_DECIMALS;
+  return Math.round(value * f) / f;
+}
 const MAX_PER_CAT     = 10;    // top 10 per category from the ranked pool
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -353,15 +377,29 @@ export async function fetchNearbyPlaces(
     return [];
   }
 
+  /**
+   * Only an approximate coordinate leaves the device.
+   *
+   * The search radius is widened by the worst-case rounding offset so the
+   * coarser centre cannot cut off places that are genuinely within range —
+   * and the exact radius is then re-applied below against the true distance,
+   * which the device computes from its real position. Net effect: the server
+   * never learns where the user is to better than about a kilometre, and the
+   * user's results are unchanged.
+   */
+  const searchRadiusM = radiusM + COORD_ROUNDING_KM * 1000;
+
   let raw: RawPlace[];
   try {
-    raw = await fetchRawPlaces(lat, lon, radiusM);
+    raw = await fetchRawPlaces(coarsen(lat), coarsen(lon), searchRadiusM);
   } catch (e) {
     if (e instanceof PlacesRateLimitedError) throw e;
     if (__DEV__) console.warn('[placesService] fetch failed:', e);
     return [];
   }
 
+  // Precise lat/lon on purpose: this runs on the device, and it is what makes
+  // the distance on each card — and the radius filter below — honest.
   const all = buildWanderPlaces(raw, lat, lon, format(new Date(), 'yyyy-MM-dd'));
 
   /**

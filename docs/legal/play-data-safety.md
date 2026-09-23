@@ -100,16 +100,36 @@ computed from them.
 | Required or optional | **Optional** — Wander degrades to curated places |
 | Purpose | App functionality |
 
-Sent to our server to search nearby places. **Not stored against any user.**
-Results are cached against a coordinate rounded to ~1 km, which cannot identify
-an individual. The precise position is held only in memory on the device.
+The coordinate is **rounded to 2 decimal places — about 1.1 km — before it
+leaves the device**, and that is what the search receives. Play draws the
+line between precise and approximate at 3 km², a circle of roughly 1 km, so
+a 1.1 km cell is approximate by its definition.
 
-*Source: `placesService.fetchNearbyPlaces`, `nearby-places` cache key uses
-`toFixed(2)`.*
+This ordering is the whole point. The server also rounds for its cache key,
+but that would be too late on its own: the precise value would already have
+been transmitted, and this declaration would be false. Coarsening happens on
+the device, before the request.
 
-> Do **not** declare precise location. The app requests
-> `ACCESS_FINE_LOCATION` for accuracy but only ever uses a coarse result, never
-> stores a trail, and blocks `ACCESS_BACKGROUND_LOCATION` outright.
+Nothing the user sees is worse for it. The device keeps its exact fix and
+uses it locally for the distance on every card and for the radius filter;
+the search radius sent up is widened by the worst-case rounding offset so a
+coarser centre cannot cut off a place that is genuinely in range.
+
+**Not stored against any user** either way.
+
+*Source: `placesService.COORD_DECIMALS`, `coarsen()`, and the
+`searchRadiusM` widening in `fetchNearbyPlaces`.*
+
+> Do **not** declare precise location — but the reason matters, because it
+> changed. `ACCESS_FINE_LOCATION` is still requested: an exact fix is what
+> makes the distance on each card correct, and a coarse-only permission
+> would put it out by kilometres. What makes the declaration true is that
+> the exact fix never leaves the phone. Data Safety asks what is
+> *collected*, meaning transmitted off device, and what is transmitted is a
+> coordinate rounded to ~1.1 km.
+>
+> No trail is ever stored, and `ACCESS_BACKGROUND_LOCATION` is blocked
+> outright.
 
 ### App activity → Other actions
 
