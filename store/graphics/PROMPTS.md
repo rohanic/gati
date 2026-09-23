@@ -40,43 +40,97 @@ surfaces.
   `#1E4D2B` deep green · `#2A7D4F` primary green · `#F8F5EF` cream ·
   `#E0A42E` gold
 
-### Prompt A — the mark, with room for the wordmark (recommended)
+### Prompt A — topographic leaf ⭐ recommended
 
-> A 1024x500 horizontal banner graphic. Warm cream background, hex #F8F5EF,
-> with a very subtle paper grain texture. On the left third, a single large
-> flat-vector leaf in deep forest green, hex #1E4D2B, tilted roughly 30
-> degrees clockwise, occupying about 60 percent of the banner height and
-> fully inside the frame with generous margin on all sides. Inside the leaf,
-> a clean geometric staircase ascends diagonally as a negative-space cut-out
-> in the cream background colour, five even steps. One small solid circle in
-> gold, hex #E0A42E, sits at the top step. The right two thirds of the banner
-> is empty cream space. Flat vector illustration style, crisp edges, no
-> gradients, no drop shadows, no 3D, no photography, no outlines. Calm,
-> editorial, minimal. Absolutely no text, no letters, no words, no numbers
-> anywhere in the image.
-
-### Prompt B — days passing, if A reads too empty
-
-> A 1024x500 horizontal banner. Warm cream background, hex #F8F5EF, subtle
-> paper grain. The same flat-vector deep green leaf, hex #1E4D2B, tilted 30
-> degrees, repeated five times across the banner from left to right at
-> steadily decreasing opacity — 100, 55, 30, 15 and 7 percent — like days
-> passing. The leftmost leaf is the most detailed and contains a
-> negative-space staircase cut-out with a small gold circle, hex #E0A42E, at
-> its top step. The rest are plain silhouettes. Even rhythmic spacing,
-> everything well inside the frame. Flat vector, no gradients, no shadows, no
-> 3D. No text, no letters, no words anywhere.
-
-### Prompt C — number-led, leaning into what the app does
+The idea: a leaf's veins and a map's contour lines are the same shape. One
+image that is both halves of the product at once — your life measured, and
+somewhere to go.
 
 > A 1024x500 horizontal banner. Deep forest green background, hex #1E4D2B.
-> Scattered across it, a loose constellation of small cream circles, hex
-> #F8F5EF, of varying sizes, connected by thin cream lines, like a
-> constellation map — sparse on the left, denser toward the right. One
-> circle, slightly larger than the rest, is gold, hex #E0A42E. Large empty
-> area in the left half for a title. Flat vector, minimal, elegant, no
-> gradients, no 3D, no photography. No text, no letters, no numbers anywhere
-> in the image.
+> Across the whole banner, elegant thin topographic contour lines in cream,
+> hex #F8F5EF, at about 25 percent opacity, flowing left to right like a
+> map of hills — densely nested on the left, opening out toward the right.
+> The contour lines gradually form the unmistakable outline of a large leaf
+> occupying the centre-left, its central vein reading as a ridgeline. A
+> single small solid gold circle, hex #E0A42E, sits where the contours are
+> densest, like a location pin marking a summit. Thin gold dotted trail
+> leading to it. Generous empty space in the right half. Flat vector
+> cartography style, elegant, precise, minimal, no gradients, no 3D, no
+> photography, no shading. Absolutely no text, no letters, no numbers.
+
+### Prompt B — the ascent
+
+The staircase from the logo, promoted from a detail to the hero. Reads as
+progress, days accumulating, one step at a time.
+
+> A 1024x500 horizontal banner. Warm cream background, hex #F8F5EF. A bold
+> geometric staircase of seven even steps ascends from the lower left to the
+> upper right, drawn as solid flat shapes in deep forest green, hex #1E4D2B,
+> with each successive step a slightly lighter green, moving toward hex
+> #2A7D4F at the top. Resting on the highest step, a single solid gold
+> circle, hex #E0A42E, with a soft cream halo. A large simplified leaf
+> silhouette sits behind the staircase in a barely visible lighter green,
+> partly cropped by the right edge, like a watermark. Everything well
+> inside the frame with clear margins. Flat vector, crisp edges, no
+> gradients, no drop shadows, no 3D, no photography. Calm, confident,
+> editorial. Absolutely no text, no letters, no numbers.
+
+### Prompt C — two halves
+
+Literal but effective: numbers on one side, a place on the other, the leaf
+bridging them. This is the app in one picture.
+
+> A 1024x500 horizontal banner, split composition. Left half: a warm cream
+> field, hex #F8F5EF, scattered with a loose constellation of small solid
+> circles in deep green, hex #1E4D2B, of varying sizes, connected by
+> hairline green threads like a star chart. Right half: the same cream
+> field with a minimal flat-vector map — three or four gently curving
+> streets in pale green, hex #2A7D4F at 30 percent opacity, and one solid
+> gold location pin, hex #E0A42E. Spanning the seam between the two halves,
+> a single large flat leaf in deep forest green, hex #1E4D2B, tilted 30
+> degrees, with a negative-space staircase cut through it in cream. The leaf
+> visually bridges the constellation and the map. Flat vector, minimal,
+> elegant, no gradients, no 3D, no photography. Absolutely no text, no
+> letters, no numbers.
+
+### Prompt D — with a real screenshot
+
+The highest-converting format, and the one to use if you want the app
+itself visible. **Generate only the background; composite a real capture
+into it.** A generated or invented app screen on a feature graphic is
+misleading metadata and a rejection risk.
+
+Step 1, the backdrop:
+
+> A 1024x500 horizontal banner. Warm cream background, hex #F8F5EF, with a
+> very subtle paper grain. On the right half, one oversized leaf silhouette
+> in pale sage green at about 12 percent opacity, tilted 30 degrees, bleeding
+> off the right edge. A few small solid gold dots, hex #E0A42E, scattered
+> sparsely like distant markers. The left two thirds is clean empty cream
+> space. Soft, calm, editorial, flat vector, no gradients, no 3D, no
+> photography, no devices, no phones, no hands. Absolutely no text.
+
+Step 2, composite over it:
+
+- A real screenshot of **Today**, inside a simple dark phone frame, angled
+  slightly or upright, occupying the right third and cropped by the bottom
+  edge so it feels like it continues past the banner
+- The wordmark on the left, per the spec below
+
+**What Today shows, so you capture the right moment.** Open the app with at
+least one key available and at least one number already opened, so the
+screen is full rather than empty:
+
+| Element | Why it should be in frame |
+|---|---|
+| Greeting and date | says the app is personal and daily |
+| Day-of-year card with its progress bar | the local-context card, unique to Gati |
+| "Open a number today" hero with a key badge | the core loop, visible at a glance |
+| A suggested number with its teaser | shows the catalogue without spoiling it |
+| Streak badge, if you have one | proof it is a habit, not a one-off |
+
+Scroll so the day-of-year card and the key card are both visible. That pair
+is the product.
 
 ### Then add the wordmark yourself
 
