@@ -9,19 +9,15 @@
  * arrives "at 00:00 UTC" is technically accurate and practically useless;
  * "5:30 AM" is the thing they can act on.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { UnlockSummary } from '@/engine/unlockEngine';
 import { formatTimeUntilNextKey } from '@/engine/unlockEngine';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 interface KeyStatusProps {
   summary: UnlockSummary;
@@ -40,18 +36,7 @@ function localResetTime(nextKeyAt: Date): string {
 }
 
 export function KeyStatus({ summary }: KeyStatusProps) {
-  const opacity = useSharedValue(0);
-  const transY  = useSharedValue(-6);
-
-  useEffect(() => {
-    opacity.value = withTiming(1, { duration: 320 });
-    transY.value  = withSpring(0, { stiffness: 220, damping: 22 });
-  }, [opacity, transY]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: transY.value }],
-  }));
+  const style = useEntrance({ duration: 320, translateY: -6 });
 
   // ── Everything opened ───────────────────────────────────────
   if (summary.allComplete) {

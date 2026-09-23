@@ -24,9 +24,7 @@ import {
   type AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { format, subDays, startOfDay } from 'date-fns';
@@ -55,6 +53,7 @@ import { scorePlace, pickWanderNudge } from '@/engine/wanderEngine';
 import { getCategoryTheme, colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Greeting ─────────────────────────────────────────────────
 function getGreeting(): string {
@@ -67,18 +66,7 @@ function getGreeting(): string {
 
 // ─── Streak badge ─────────────────────────────────────────────
 function StreakBadge({ count }: { count: number }) {
-  const opacity = useSharedValue(0);
-  const scale   = useSharedValue(0.85);
-
-  useEffect(() => {
-    opacity.value = withTiming(1, { duration: 380 });
-    scale.value   = withSpring(1, { stiffness: 300, damping: 25 });
-  }, [opacity, scale]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
+  const style = useEntrance({ duration: 380, scale: 0.85 });
 
   return (
     <Animated.View style={[styles.streakBadge, style]}>
@@ -136,18 +124,7 @@ function TodaysKey({
   onOpen:     (card: NumberCard) => void;
   onBrowse:   () => void;
 }) {
-  const op = useSharedValue(0);
-  const ty = useSharedValue(14);
-
-  useEffect(() => {
-    op.value = withDelay(80, withTiming(1, { duration: 360 }));
-    ty.value = withDelay(80, withSpring(0, { stiffness: 200, damping: 20 }));
-  }, [op, ty]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   op.value,
-    transform: [{ translateY: ty.value }],
-  }));
+  const style = useEntrance({ delay: 80, duration: 360, translateY: 14 });
 
   if (!suggestion) {
     return (
@@ -511,16 +488,7 @@ export default function TodayScreen() {
   );
 
   // ── Header entrance ──
-  const headOp = useSharedValue(0);
-  const headY  = useSharedValue(-12);
-  useEffect(() => {
-    headOp.value = withTiming(1, { duration: 400 });
-    headY.value  = withSpring(0, { stiffness: 200, damping: 20 });
-  }, [headOp, headY]);
-  const headStyle = useAnimatedStyle(() => ({
-    opacity:   headOp.value,
-    transform: [{ translateY: headY.value }],
-  }));
+  const headStyle = useEntrance({ duration: 400, translateY: -12 });
 
   const name = profile?.firstName ?? '';
 

@@ -37,7 +37,6 @@ import Animated, {
   withSpring,
   withTiming,
   withRepeat,
-  withDelay,
   withSequence,
   Easing,
 } from 'react-native-reanimated';
@@ -59,6 +58,7 @@ import {
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { ExerciseFrequency, InterestCategory } from '@/types';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Constants ────────────────────────────────────────────────
 const EXERCISE_OPTIONS: { value: ExerciseFrequency; label: string }[] = [
@@ -263,18 +263,9 @@ function SettingRow({
   /** Red treatment for irreversible actions (account deletion). */
   destructive?: boolean;
 }) {
-  const tx = useSharedValue(24);
-  const op = useSharedValue(0);
-
-  useEffect(() => {
-    tx.value = withDelay(delay, withSpring(0,  { stiffness: 220, damping: 22 }));
-    op.value = withDelay(delay, withTiming(1,  { duration: 280 }));
-  }, [delay]);
-
-  const rowStyle = useAnimatedStyle(() => ({
-    opacity:   op.value,
-    transform: [{ translateX: tx.value }],
-  }));
+  // See useEntrance: once settled, the row renders with no animated style, so
+  // returning from the browser can no longer bring it back blank.
+  const rowStyle = useEntrance({ delay, duration: 280, translateX: 24 });
 
   return (
     <Animated.View style={rowStyle}>
@@ -331,11 +322,7 @@ function SectionCard({
   delay:    number;
   children: React.ReactNode;
 }) {
-  const op = useSharedValue(0);
-  useEffect(() => {
-    op.value = withDelay(delay, withTiming(1, { duration: 360 }));
-  }, [delay]);
-  const headerStyle = useAnimatedStyle(() => ({ opacity: op.value }));
+  const headerStyle = useEntrance({ delay, duration: 360 });
 
   return (
     <View style={styles.section}>
@@ -622,16 +609,7 @@ export default function ProfileScreen() {
   const [pickerMeals,    setPickerMeals]    = useState(false);
 
   // ── Avatar animation ──
-  const avatarScale = useSharedValue(0.8);
-  const avatarOp    = useSharedValue(0);
-  useEffect(() => {
-    avatarScale.value = withSpring(1, { stiffness: 220, damping: 20 });
-    avatarOp.value    = withTiming(1, { duration: 350 });
-  }, []);
-  const avatarStyle = useAnimatedStyle(() => ({
-    opacity:   avatarOp.value,
-    transform: [{ scale: avatarScale.value }],
-  }));
+  const avatarStyle = useEntrance({ duration: 350, scale: 0.8 });
 
   // ── #18: Habit-save toast ────────────────────────────────────
   const [toastText, setToastText]   = useState('');

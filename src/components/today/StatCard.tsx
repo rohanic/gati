@@ -15,7 +15,6 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +29,7 @@ import type { LifeStatsOutput } from '@/engine/statsEngine';
 import type { UserProfile } from '@/types';
 import { colors, spacing, radius, shadow, fontFamily, getCategoryTheme } from '@/theme';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Category icon (static — no idle pulse) ───────────────────
 function CategoryIcon({ icon, color }: { icon: string; color: string }) {
@@ -129,9 +129,8 @@ export function StatCard({
   }, [definition.id]);
 
   // ── Card entrance ──
-  const cardScale   = useSharedValue(0.92);
-  const cardOpacity = useSharedValue(0);
-  const contentOp   = useSharedValue(0);
+  const cardStyle    = useEntrance({ duration: 360, scale: 0.92 });
+  const contentStyle = useEntrance({ delay: 200, duration: 400 });
 
   // Reset the nudge during render when the card switches to another stat.
   // React's "adjusting state when a prop changes" pattern — the previous
@@ -144,9 +143,6 @@ export function StatCard({
   }
 
   useEffect(() => {
-    cardScale.value   = withSpring(1, { stiffness: 200, damping: 20 });
-    cardOpacity.value = withTiming(1, { duration: 360 });
-    contentOp.value   = withDelay(200, withTiming(1, { duration: 400 }));
     nudgeOpacity.value = 0;
     const timer = setTimeout(() => setShowNudge(true), 1_800);
     return () => clearTimeout(timer);
@@ -167,11 +163,6 @@ export function StatCard({
     return () => clearTimeout(dismissTimer);
   }, [showNudge]);
 
-  const cardStyle    = useAnimatedStyle(() => ({
-    opacity:   cardOpacity.value,
-    transform: [{ scale: cardScale.value }],
-  }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: contentOp.value }));
   const nudgeStyle   = useAnimatedStyle(() => ({
     opacity:   nudgeOpacity.value,
     transform: [{ translateY: (1 - nudgeOpacity.value) * 6 }],

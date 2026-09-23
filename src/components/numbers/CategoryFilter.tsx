@@ -3,18 +3,18 @@
  * Pills: All | Time | Body | Habits | Social
  * Active pill springs in with scale bounce.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ScrollView, Pressable, View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withDelay,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontFamily, categoryTheme } from '@/theme';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 export type CategoryKey = 'all' | 'time' | 'body' | 'habits' | 'social';
 
@@ -47,20 +47,12 @@ function Pill({
   onPress:  () => void;
   delay:    number;
 }) {
-  const entryScale = useSharedValue(0.8);
-  const entryOp    = useSharedValue(0);
   const pressScale = useSharedValue(1);
 
-  // Entrance stagger
-  useEffect(() => {
-    entryOp.value    = withSpring(1, { stiffness: 200, damping: 20 });
-    entryScale.value = withDelay(delay, withSpring(1, { stiffness: 300, damping: 25 }));
-  }, []);
-
-  const entryStyle = useAnimatedStyle(() => ({
-    opacity:   entryOp.value,
-    transform: [{ scale: entryScale.value * pressScale.value }],
-  }));
+  // Entrance stagger, and press feedback on a separate view so the two
+  // transforms combine instead of one replacing the other.
+  const entryStyle = useEntrance({ delay, duration: 280, scale: 0.8 });
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value }] }));
 
   const handlePressIn  = () => {
     pressScale.value = withSpring(0.91, { stiffness: 500, damping: 20 });
@@ -71,6 +63,7 @@ function Pill({
 
   return (
     <Animated.View style={entryStyle}>
+      <Animated.View style={pressStyle}>
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -98,6 +91,7 @@ function Pill({
           {meta.label}
         </Text>
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }

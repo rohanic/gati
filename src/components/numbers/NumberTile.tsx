@@ -12,14 +12,12 @@
  * thing with a reason to choose it over the other sealed ones — otherwise
  * "pick today's number" is not a decision, it is a shrug.
  */
-import React, { memo, useEffect } from 'react';
+import React, { memo } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withDelay,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { CountUpText } from '@/components/ui';
@@ -27,6 +25,7 @@ import { getCategoryTheme } from '@/theme';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { NumberCard } from '@/hooks/useNumbers';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 interface NumberTileProps {
   card:      NumberCard;
@@ -39,22 +38,16 @@ interface NumberTileProps {
 function NumberTileBase({ card, index, hasKey, onPress }: NumberTileProps) {
   const cat = getCategoryTheme(card.definition.category);
 
-  const opacity = useSharedValue(0);
-  const transY  = useSharedValue(10);
-  const press   = useSharedValue(1);
+  // Cap the stagger: a 25-tile grid would otherwise take three seconds to
+  // finish appearing.
+  const entrance = useEntrance({ delay: Math.min(index, 8) * 45, duration: 260, translateY: 10 });
 
-  useEffect(() => {
-    // Cap the stagger: a 25-tile grid would otherwise take three seconds to
-    // finish appearing.
-    const delay = Math.min(index, 8) * 45;
-    opacity.value = withDelay(delay, withTiming(1, { duration: 260 }));
-    transY.value  = withDelay(delay, withSpring(0, { stiffness: 220, damping: 20 }));
-  }, [index, opacity, transY]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: transY.value }, { scale: press.value }],
-  }));
+  // Press feedback lives on its own view. Sharing one `transform` with the
+  // entrance meant a style array where the later transform REPLACES the
+  // earlier one rather than combining with it — so splitting them onto one
+  // view would silently have dropped the slide-in.
+  const press      = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
 
   const accessibilityLabel = card.unlocked
     ? `${card.definition.title}, opened. Tap to see the full number.`
@@ -63,7 +56,8 @@ function NumberTileBase({ card, index, hasKey, onPress }: NumberTileProps) {
       : `${card.definition.title}, sealed. ${card.teaser} No keys left today.`;
 
   return (
-    <Animated.View style={[styles.wrap, style]}>
+    <Animated.View style={[styles.wrap, entrance]}>
+      <Animated.View style={pressStyle}>
       <Pressable
         onPress={() => onPress(card)}
         onPressIn={()  => { press.value = withSpring(0.97, { stiffness: 480, damping: 24 }); }}
@@ -136,6 +130,7 @@ function NumberTileBase({ card, index, hasKey, onPress }: NumberTileProps) {
           </>
         )}
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }

@@ -29,13 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withDelay,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { CategoryChips, PlaceCard } from '@/components/wander';
@@ -55,6 +49,7 @@ import {
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { WanderPlace } from '@/types';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Section header ──────────────────────────────────────────────
 function SectionHeader({
@@ -141,18 +136,7 @@ function EmptyCategory({ category }: { category: string }) {
 
 // ─── "For You" highlight strip ───────────────────────────────────
 function ForYouHeader({ count }: { count: number }) {
-  const opacity = useSharedValue(0);
-  const transY  = useSharedValue(6);
-
-  useEffect(() => {
-    opacity.value = withDelay(180, withTiming(1, { duration: 300 }));
-    transY.value  = withDelay(180, withSpring(0, { stiffness: 240, damping: 22 }));
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: transY.value }],
-  }));
+  const style = useEntrance({ delay: 180, duration: 300, translateY: 6 });
 
   return (
     <Animated.View style={[styles.forYouBanner, style]}>
@@ -185,16 +169,7 @@ function VisitedSection({
   const [open, setOpen] = useState(true);
 
   // Entrance animation — matches ForYouHeader / NumbersNearbyHeader
-  const enterOp = useSharedValue(0);
-  const enterY  = useSharedValue(10);
-  useEffect(() => {
-    enterOp.value = withDelay(80, withTiming(1, { duration: 300 }));
-    enterY.value  = withDelay(80, withSpring(0, { stiffness: 220, damping: 22 }));
-  }, []);
-  const enterStyle = useAnimatedStyle(() => ({
-    opacity:   enterOp.value,
-    transform: [{ translateY: enterY.value }],
-  }));
+  const enterStyle = useEntrance({ delay: 80, duration: 300, translateY: 10 });
 
   return (
     <Animated.View style={enterStyle}>
@@ -580,16 +555,7 @@ export default function WanderScreen() {
   }, [locationGranted, loadRealPlaces, FEED_SIZE]);
 
   // ── Header entrance ──
-  const headerOp = useSharedValue(0);
-  const headerY  = useSharedValue(-8);
-  useEffect(() => {
-    headerOp.value = withTiming(1, { duration: 360 });
-    headerY.value  = withSpring(0, { stiffness: 200, damping: 20 });
-  }, []);
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity:   headerOp.value,
-    transform: [{ translateY: headerY.value }],
-  }));
+  const headerStyle = useEntrance({ duration: 360, translateY: -8 });
 
   // ── Subtitle text: reflects interest personalization ──
   const subtitleText = userInterests.length > 0

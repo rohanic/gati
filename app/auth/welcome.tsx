@@ -7,7 +7,7 @@
  * Navigation: replaces verify/index in the auth modal stack.
  * "Let's go" → dismissAll() to return to the main tabs.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Pressable,
@@ -15,14 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { continueAfterFirstRunAuth } from '@/navigation/firstRun';
@@ -31,6 +24,7 @@ import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import { useUserStore, trialDaysLeft } from '@/store/userStore';
 import { format, addDays, parseISO } from 'date-fns';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Trial features list ─────────────────────────────────────
 const TRIAL_FEATURES: { icon: string; label: string; desc: string }[] = [
@@ -50,23 +44,11 @@ export default function WelcomeScreen() {
     : '';
 
   // ── Entrance animations ──────────────────────────────────
-  const headerOp = useSharedValue(0);
-  const headerY  = useSharedValue(24);
-  const cardOp   = useSharedValue(0);
-  const cardY    = useSharedValue(20);
-  const btnOp    = useSharedValue(0);
-
-  useEffect(() => {
-    headerOp.value = withTiming(1, { duration: 380 });
-    headerY.value  = withSpring(0, { stiffness: 220, damping: 22 });
-    cardOp.value   = withDelay(200, withTiming(1, { duration: 380 }));
-    cardY.value    = withDelay(200, withSpring(0, { stiffness: 200, damping: 20 }));
-    btnOp.value    = withDelay(420, withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }));
-  }, []);
-
-  const headerStyle  = useAnimatedStyle(() => ({ opacity: headerOp.value, transform: [{ translateY: headerY.value }] }));
-  const cardStyle    = useAnimatedStyle(() => ({ opacity: cardOp.value,   transform: [{ translateY: cardY.value }]   }));
-  const btnStyle     = useAnimatedStyle(() => ({ opacity: btnOp.value }));
+  // The first screen after returning from Google in the browser — exactly the
+  // round trip that left Profile blank. See useEntrance.
+  const headerStyle = useEntrance({ duration: 380, translateY: 24 });
+  const cardStyle   = useEntrance({ delay: 200, duration: 380, translateY: 20 });
+  const btnStyle    = useEntrance({ delay: 420, duration: 300 });
 
   const handleGo = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

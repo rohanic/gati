@@ -21,9 +21,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withDelay,
-  Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -44,6 +41,7 @@ import { MILESTONE_DEFINITIONS } from '@/engine/milestoneEngine';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { StoryAnnotation } from '@/store/storyStore';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Timeline event types ─────────────────────────────────────
 type EventType = 'stat' | 'place' | 'milestone';
@@ -83,20 +81,12 @@ function TimelineEntry({
   // Pinned events use gold dot; otherwise the event-type colour
   const dotColor = pinned ? colors.gold : meta.dot;
 
-  const tx    = useSharedValue(-40);
-  const op    = useSharedValue(0);
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    const delay = Math.min(index, 10) * 60;
-    tx.value = withDelay(delay, withSpring(0,  { stiffness: 220, damping: 22 }));
-    op.value = withDelay(delay, withTiming(1,  { duration: 280 }));
-  }, [index]);
-
-  const enterStyle = useAnimatedStyle(() => ({
-    opacity:   op.value,
-    transform: [{ translateX: tx.value }],
-  }));
+  const scale      = useSharedValue(1);
+  const enterStyle = useEntrance({
+    delay:      Math.min(index, 10) * 60,
+    duration:   280,
+    translateX: -40,
+  });
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -218,11 +208,7 @@ function MonthSection({
   annotations: Record<string, StoryAnnotation>;
   onNote:      (eventId: string, eventTitle: string) => void;
 }) {
-  const op = useSharedValue(0);
-  useEffect(() => {
-    op.value = withDelay(baseIndex * 60, withTiming(1, { duration: 360 }));
-  }, [baseIndex]);
-  const headerStyle = useAnimatedStyle(() => ({ opacity: op.value }));
+  const headerStyle = useEntrance({ delay: baseIndex * 60, duration: 360 });
 
   return (
     <View style={styles.monthSection}>
@@ -289,16 +275,7 @@ function StatsSummaryBar({
   placesDiscovered: number;
   bestStreak:       number;
 }) {
-  const op = useSharedValue(0);
-  const ty = useSharedValue(12);
-  useEffect(() => {
-    op.value = withDelay(200, withTiming(1, { duration: 400 }));
-    ty.value = withDelay(200, withSpring(0, { stiffness: 200, damping: 20 }));
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    opacity:   op.value,
-    transform: [{ translateY: ty.value }],
-  }));
+  const style = useEntrance({ delay: 200, duration: 400, translateY: 12 });
 
   const items = [
     { value: daysAlive.toLocaleString(), label: 'days lived'  },
@@ -324,16 +301,7 @@ function StatsSummaryBar({
 
 // ─── Empty state ──────────────────────────────────────────────
 function EmptyStory() {
-  const op = useSharedValue(0);
-  const ty = useSharedValue(20);
-  useEffect(() => {
-    op.value = withTiming(1, { duration: 450 });
-    ty.value = withSpring(0, { stiffness: 180, damping: 18 });
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    opacity:   op.value,
-    transform: [{ translateY: ty.value }],
-  }));
+  const style = useEntrance({ duration: 450, translateY: 20 });
   return (
     <Animated.View style={[styles.empty, style]}>
       <View style={styles.emptyIcon}>
@@ -551,16 +519,7 @@ export default function StoryScreen() {
   }, [filteredEvents]);
 
   // ── Header animation ──
-  const headerOp = useSharedValue(0);
-  const headerY  = useSharedValue(-8);
-  useEffect(() => {
-    headerOp.value = withTiming(1, { duration: 350 });
-    headerY.value  = withSpring(0, { stiffness: 200, damping: 20 });
-  }, []);
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity:   headerOp.value,
-    transform: [{ translateY: headerY.value }],
-  }));
+  const headerStyle = useEntrance({ duration: 350, translateY: -8 });
 
   // ── Running index for stagger base ──
   let eventIndex = 0;

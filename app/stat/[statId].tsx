@@ -13,7 +13,7 @@
  * Design: forest green hero strip + off-white body, spring entrance.
  * No emojis. No purple. No orange. Light mode only.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Pressable,
@@ -23,13 +23,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
@@ -38,6 +32,7 @@ import { STAT_DEFINITIONS } from '@/data/statDefinitions';
 import { computeLifeStats, formatStatNumber } from '@/engine/statsEngine';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Hero strip ─────────────────────────────────────────────────────
 function HeroStrip({
@@ -53,18 +48,7 @@ function HeroStrip({
   unit:          string;
   hasValue:      boolean;
 }) {
-  const stripScale   = useSharedValue(0.94);
-  const stripOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    stripOpacity.value = withTiming(1, { duration: 320 });
-    stripScale.value   = withSpring(1, { stiffness: 220, damping: 20 });
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity:   stripOpacity.value,
-    transform: [{ scale: stripScale.value }],
-  }));
+  const style = useEntrance({ duration: 320, scale: 0.94 });
 
   return (
     <Animated.View style={[styles.heroStrip, style]}>
@@ -118,18 +102,7 @@ export default function StatDeepLink() {
   const hasProfile = profile !== null;
 
   // Content entrance
-  const contentOpacity = useSharedValue(0);
-  const contentTransY  = useSharedValue(16);
-
-  useEffect(() => {
-    contentOpacity.value = withDelay(120, withTiming(1, { duration: 300 }));
-    contentTransY.value  = withDelay(120, withSpring(0, { stiffness: 260, damping: 24 }));
-  }, []);
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity:   contentOpacity.value,
-    transform: [{ translateY: contentTransY.value }],
-  }));
+  const contentStyle = useEntrance({ delay: 120, duration: 300, translateY: 16 });
 
   // ── Error state ──────────────────────────────────────────────
   if (!definition) {

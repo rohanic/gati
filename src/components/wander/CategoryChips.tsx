@@ -2,20 +2,19 @@
  * Horizontal scrollable category filter chips for the Wander tab.
  * Spring press animation, no emoji, no purple/orange.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet, Pressable, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withDelay,
-  withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import type { InterestCategory } from '@/types';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Category meta ─────────────────────────────────────────────
 export type WanderCategory = InterestCategory | 'all';
@@ -56,19 +55,8 @@ function Chip({
   onPress: () => void;
   delay:   number;
 }) {
-  const opacity = useSharedValue(0);
-  const transX  = useSharedValue(12);
-  const scale   = useSharedValue(1);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 240 }));
-    transX.value  = withDelay(delay, withSpring(0, { stiffness: 300, damping: 25 }));
-  }, []);
-
-  const outerStyle = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateX: transX.value }],
-  }));
+  const scale      = useSharedValue(1);
+  const outerStyle = useEntrance({ delay, duration: 240, translateX: 12 });
   const innerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));

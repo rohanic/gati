@@ -13,7 +13,7 @@
  *
  * NO emoji. NO purple. NO orange. Forest green + off-white palette.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -25,13 +25,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 // See PlaceCard for why remote photos use expo-image.
 import { Image } from 'expo-image';
@@ -44,6 +38,7 @@ import { getCategoryMeta } from '@/components/wander';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { WanderPlace } from '@/types';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Hero banner ─────────────────────────────────────────────────
 // Full-width banner at the top of the detail screen.
@@ -56,11 +51,8 @@ function HeroBanner({
   bannerHeight: number;
 }) {
   const [failed, setFailed] = useState(false);
-  const imgOp               = useSharedValue(0);
   const meta                = getCategoryMeta(place.category);
   const hasPhoto            = !!place.thumbnailUrl && !failed;
-
-  const imgStyle = useAnimatedStyle(() => ({ opacity: imgOp.value }));
 
   return (
     <View style={[styles.heroBanner, { height: bannerHeight }]}>
@@ -83,18 +75,18 @@ function HeroBanner({
 
       {/* ── Layer 2: real photo fades in ── */}
       {hasPhoto && (
-        <Animated.View style={[StyleSheet.absoluteFill, imgStyle]}>
-          <Image
-            source={place.thumbnailUrl!}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            recyclingKey={place.placeId}
-            cachePolicy="memory-disk"
-            transition={0}
-            onLoad={() => { imgOp.value = withTiming(1, { duration: 320 }); }}
-            onError={() => setFailed(true)}
-          />
-        </Animated.View>
+        <Image
+          source={place.thumbnailUrl!}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          recyclingKey={place.placeId}
+          cachePolicy="memory-disk"
+          // Native fade — see PlaceCard. This is the screen "Directions" leaves
+          // for Google Maps and returns to, so it is the likeliest place for a
+          // rebuilt view to have come back blank.
+          transition={320}
+          onError={() => setFailed(true)}
+        />
       )}
 
       {/* ── Gradient overlay: always covers bottom third for legibility ── */}
@@ -170,19 +162,11 @@ export default function PlaceDetailScreen() {
   const bannerHeight = Math.round(width * 0.56);
 
   // ── Entrance animations ──
-  const card1Op = useSharedValue(0);
-  const card2Op = useSharedValue(0);
-  const card3Op = useSharedValue(0);
-
-  useEffect(() => {
-    card1Op.value = withDelay(160, withTiming(1, { duration: 300 }));
-    card2Op.value = withDelay(280, withTiming(1, { duration: 300 }));
-    card3Op.value = withDelay(400, withTiming(1, { duration: 300 }));
-  }, []);
-
-  const card1Style = useAnimatedStyle(() => ({ opacity: card1Op.value }));
-  const card2Style = useAnimatedStyle(() => ({ opacity: card2Op.value }));
-  const card3Style = useAnimatedStyle(() => ({ opacity: card3Op.value }));
+  // "Directions" hands off to Google Maps and the user comes back here — the
+  // same round trip that left Profile blank. See useEntrance.
+  const card1Style = useEntrance({ delay: 160, duration: 300 });
+  const card2Style = useEntrance({ delay: 280, duration: 300 });
+  const card3Style = useEntrance({ delay: 400, duration: 300 });
 
   const handleSaveToggle = useCallback(() => {
     if (!place) return;

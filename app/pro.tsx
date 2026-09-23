@@ -26,7 +26,6 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
-  withDelay,
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +49,7 @@ import {
 } from '@/services/purchaseService';
 import type { ProductSubscription } from 'expo-iap';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Feature comparison rows ─────────────────────────────────
 // Every `free: false` row below must correspond to real gating in the app.
@@ -313,16 +313,7 @@ export default function ProScreen() {
   }, []);
 
   // Entrance animation
-  const contentOp = useSharedValue(0);
-  const contentY  = useSharedValue(30);
-  useEffect(() => {
-    contentOp.value = withDelay(120, withTiming(1, { duration: 380 }));
-    contentY.value  = withDelay(120, withSpring(0, { stiffness: 200, damping: 20 }));
-  }, []);
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity:   contentOp.value,
-    transform: [{ translateY: contentY.value }],
-  }));
+  const contentStyle = useEntrance({ delay: 120, duration: 380, translateY: 30 });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

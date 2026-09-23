@@ -10,15 +10,10 @@
  * new rule is simpler and easier to trust: you get a key a day, you choose
  * what to spend it on, and what you open stays open.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -28,6 +23,7 @@ import { useNumbers, type NumberCard } from '@/hooks/useNumbers';
 import { useUserStore, useStatsStore } from '@/store/userStore';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 type Filter = 'all' | 'sealed' | 'open';
 
@@ -63,16 +59,7 @@ export default function NumbersScreen() {
   const [revealed, setRevealed] = useState(false);
 
   // ── Header entrance ──
-  const headerOp = useSharedValue(0);
-  const headerY  = useSharedValue(-8);
-  useEffect(() => {
-    headerOp.value = withTiming(1, { duration: 360 });
-    headerY.value  = withSpring(0, { stiffness: 200, damping: 20 });
-  }, [headerOp, headerY]);
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity:   headerOp.value,
-    transform: [{ translateY: headerY.value }],
-  }));
+  const headerStyle = useEntrance({ duration: 360, translateY: -8 });
 
   const visible = useMemo(() => {
     if (filter === 'sealed') return cards.filter((c) => !c.unlocked);

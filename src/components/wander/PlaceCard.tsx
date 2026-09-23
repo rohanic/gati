@@ -15,8 +15,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withDelay,
-  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 /**
@@ -43,6 +41,7 @@ import { useAccess } from '@/hooks/useAccess';
 import { supabase } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── AI blurb cache — in-memory Map backed by AsyncStorage ──────────────────
 // Blurbs are expensive (one GPT-4o-mini call each), so they must survive cold
@@ -153,11 +152,8 @@ function RatingRow({ rating, reviewCount }: { rating: number; reviewCount: numbe
 // once loaded. If the image fails, the gradient remains visible.
 function PlaceThumbnail({ place }: { place: WanderPlace }) {
   const [failed, setFailed] = useState(false);
-  const imgOp               = useSharedValue(0);
   const meta                = getCategoryMeta(place.category);
   const hasPhoto            = !!place.thumbnailUrl && !failed;
-
-  const imgStyle = useAnimatedStyle(() => ({ opacity: imgOp.value }));
 
   return (
     <View style={styles.thumb}>
@@ -176,22 +172,21 @@ function PlaceThumbnail({ place }: { place: WanderPlace }) {
 
       {/* ── Layer 2: real photo fades in over gradient ── */}
       {hasPhoto && (
-        <Animated.View style={[StyleSheet.absoluteFill, imgStyle]}>
-          <Image
-            source={place.thumbnailUrl!}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            // Thumbnails are ~160px tall on screen; decoding the full 480px
-            // asset for every card is what the memory warning was about.
-            recyclingKey={place.placeId}
-            cachePolicy="memory-disk"
-            transition={0}
-            onLoad={() => {
-              imgOp.value = withTiming(1, { duration: 300 });
-            }}
-            onError={() => setFailed(true)}
-          />
-        </Animated.View>
+        <Image
+          source={place.thumbnailUrl!}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          // Thumbnails are ~160px tall on screen; decoding the full 480px
+          // asset for every card is what the memory warning was about.
+          recyclingKey={place.placeId}
+          cachePolicy="memory-disk"
+          // The fade is expo-image's own, done natively. It replaces a
+          // Reanimated wrapper that started at opacity 0 and relied on onLoad
+          // to animate it up — so a view rebuilt from React's props after
+          // coming back from Maps showed the photo as blank.
+          transition={300}
+          onError={() => setFailed(true)}
+        />
       )}
 
       {/* ── Layer 3: category chip in corner when photo visible ── */}
@@ -233,9 +228,10 @@ export function PlaceCard({
   isInterestMatch = false, statContext, reason, enableAiPick = false,
 }: PlaceCardProps) {
   const meta    = getCategoryMeta(place.category);
-  const opacity = useSharedValue(0);
-  const transY  = useSharedValue(14);
   const scale   = useSharedValue(1);
+  // Entrance and press feedback on separate views: sharing one `transform`
+  // would make the later style replace the earlier rather than combine.
+  const entrance = useEntrance({ delay: Math.min(index, 8) * 60, duration: 280, translateY: 14 });
 
   // ── Pro/trial gate for AI blurb ──
   const categoryScores = useWanderStore((s) => s.categoryScores);
@@ -245,12 +241,6 @@ export function PlaceCard({
     aiBlurbCache.get(place.placeId) ?? null,
   );
   const fetchedRef = useRef(false);
-
-  useEffect(() => {
-    const delay   = Math.min(index, 8) * 60;
-    opacity.value = withDelay(delay, withTiming(1, { duration: 280 }));
-    transY.value  = withDelay(delay, withSpring(0, { stiffness: 220, damping: 20 }));
-  }, []);
 
   // Fetch AI blurb — Pro/trial only, and ONLY for cards that opted in via
   // enableAiPick (the "Picked for you" section). Other sections still DISPLAY a
@@ -287,10 +277,7 @@ export function PlaceCard({
     return () => { cancelled = true; };
   }, [enableAiPick, isProOrTrial]);
 
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: transY.value }, { scale: scale.value }],
-  }));
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   // Guard so a fast double-tap can't push two detail screens. The press-scale
   // bounce runs in parallel — navigation fires immediately, not after a delay.
@@ -321,7 +308,8 @@ export function PlaceCard({
       : `${place.distanceKm.toFixed(1)} km`;
 
   return (
-    <Animated.View style={[styles.container, cardStyle]}>
+    <Animated.View style={[styles.container, entrance]}>
+      <Animated.View style={pressStyle}>
       <Pressable
         onPress={handlePress}
         style={styles.card}
@@ -418,6 +406,7 @@ export function PlaceCard({
           />
         </Pressable>
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }

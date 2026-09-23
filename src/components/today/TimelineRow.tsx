@@ -3,21 +3,16 @@
  * Staggered spring entrance: slides in from left with opacity.
  * Left-rail: dot + connecting line.
  */
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { formatStatCompact } from '@/engine/statsEngine';
 import type { StatDef } from '@/data/statDefinitions';
 import { colors, spacing, radius, fontFamily, getCategoryTheme } from '@/theme';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 // ─── Stat icon (static) ───────────────────────────────────────
 function RowIcon({ icon, color }: { icon: string; color: string }) {
@@ -41,19 +36,11 @@ export function TimelineRow({
   isLast,
 }: TimelineRowProps) {
   const color   = getCategoryTheme(definition.category).accent;
-  const opacity = useSharedValue(0);
-  const transX  = useSharedValue(-20);
-
-  useEffect(() => {
-    const delay = Math.min(index, 5) * 110;
-    opacity.value = withDelay(delay, withTiming(1, { duration: 320 }));
-    transX.value  = withDelay(delay, withSpring(0, { stiffness: 220, damping: 20 }));
-  }, [index]);
-
-  const rowStyle = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateX: transX.value }],
-  }));
+  const rowStyle = useEntrance({
+    delay:      Math.min(index, 5) * 110,
+    duration:   320,
+    translateX: -20,
+  });
 
   const parsedDate = new Date(date + 'T00:00:00');
   const dateLabel  = format(parsedDate, 'MMM d');

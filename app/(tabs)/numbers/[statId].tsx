@@ -21,8 +21,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withDelay,
 } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import { isViewShotAvailable } from '@/utils/viewshot';
@@ -40,6 +38,7 @@ import { useNumbers } from '@/hooks/useNumbers';
 import { colors, spacing, radius, fontFamily, shadow, getCategoryTheme } from '@/theme';
 import type { LifeStatsOutput } from '@/engine/statsEngine';
 import { Text } from '@/components/ui/Text';
+import { useEntrance } from '@/hooks/useEntrance';
 
 /** Shrink the number as digits grow so it never clips. */
 function detailFontSize(value: number, precision: number): number {
@@ -123,27 +122,11 @@ export default function StatDetailScreen() {
     .slice(0, 3);
 
   // ── Entrance animations ──
-  const heroOp  = useSharedValue(0);
-  const heroY   = useSharedValue(20);
-  const card1Op = useSharedValue(0);
-  const card2Op = useSharedValue(0);
-  const card3Op = useSharedValue(0);
-
-  useEffect(() => {
-    heroOp.value  = withTiming(1,   { duration: 360 });
-    heroY.value   = withSpring(0,   { stiffness: 200, damping: 18 });
-    card1Op.value = withDelay(280,  withTiming(1, { duration: 320 }));
-    card2Op.value = withDelay(420,  withTiming(1, { duration: 320 }));
-    card3Op.value = withDelay(560,  withTiming(1, { duration: 320 }));
-  }, []);
-
-  const heroStyle  = useAnimatedStyle(() => ({
-    opacity:   heroOp.value,
-    transform: [{ translateY: heroY.value }],
-  }));
-  const card1Style = useAnimatedStyle(() => ({ opacity: card1Op.value }));
-  const card2Style = useAnimatedStyle(() => ({ opacity: card2Op.value }));
-  const card3Style = useAnimatedStyle(() => ({ opacity: card3Op.value }));
+  // This screen is left for the share sheet and returned to; see useEntrance.
+  const heroStyle  = useEntrance({ duration: 360, translateY: 20 });
+  const card1Style = useEntrance({ delay: 280, duration: 320 });
+  const card2Style = useEntrance({ delay: 420, duration: 320 });
+  const card3Style = useEntrance({ delay: 560, duration: 320 });
 
   // ── Share ──────────────────────────────────────────────────
   const handleShare = async () => {
