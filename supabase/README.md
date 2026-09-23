@@ -73,7 +73,7 @@ functions refuse to run without it.
 
 ### The Google Places key must no longer be in `.env`
 
-`EXPO_PUBLIC_*` variables are inlined into the JS bundle. `EXPO_PUBLIC_GOOGLE_PLACES_KEY`
+`EXPO_PUBLIC_*` variables are inlined into the JS bundle. The Places key was once named `EXPO_PUBLIC_GOOGLE_PLACES_KEY` and
 was therefore readable by anyone who unzipped the release, and Google's Android
 app-signature restriction does not help because React Native's `fetch` does not
 send the `X-Android-Package` / `X-Android-Cert` headers it checks.

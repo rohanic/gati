@@ -54,7 +54,7 @@ the only thing still standing between Wander and real places — the ranking,
 the radius control and the client are all done and tested.
 
 ```bash
-supabase secrets set GOOGLE_PLACES_KEY="$(grep '^EXPO_PUBLIC_GOOGLE_PLACES_KEY=' .env | cut -d= -f2- | tr -d '"'"'"'\'' ')"
+supabase secrets set GOOGLE_PLACES_KEY="$(grep '^GOOGLE_PLACES_KEY=' .env | cut -d= -f2- | tr -d '"'"'"'\'' ')"
 ```
 
 > Rotate this key afterwards. It has sat in a local `.env` under an
