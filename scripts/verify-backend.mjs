@@ -142,6 +142,35 @@ try {
       }),
     });
     const j = await r.json();
+
+    // The check that would have stopped 1.2.1 (36). EXPO_PUBLIC_* values are
+    // inlined at build time, EAS builds where .env does not exist, so they
+    // must live on EAS — otherwise the build succeeds and ships pointing at
+    // placeholder.supabase.co.
+    const envRes = await fetch('https://api.expo.dev/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'expo-session': session,
+                 'User-Agent': 'gati-verify-backend' },
+      body: JSON.stringify({
+        query: `query($appId:String!){app{byId(appId:$appId){
+                  environmentVariables(filterNames:null){ name environments }}}}`,
+        variables: { appId },
+      }),
+    });
+    const envVars = (await envRes.json())?.data?.app?.byId?.environmentVariables ?? [];
+    for (const name of ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']) {
+      const v = envVars.find((e) => e.name === name);
+      const envs = (v?.environments ?? []).map((e) => String(e).toLowerCase());
+      if (!v) {
+        bad(`${name} is not on EAS — a cloud build ships pointing at placeholder.supabase.co`,
+            `eas env:set --name ${name} --value <value> --environment production --environment preview --non-interactive`);
+      } else if (!envs.includes('production')) {
+        bad(`${name} is on EAS but not for production`, 'add --environment production');
+      } else {
+        ok(`${name} on EAS (${envs.join(', ')})`);
+      }
+    }
+
     const list = j?.data?.app?.byId?.androidAppCredentials ?? [];
     const pkg = JSON.parse(readFileSync('app.json', 'utf8'))?.expo?.android?.package;
     const mine = list.find((c) => c.applicationIdentifier === pkg);

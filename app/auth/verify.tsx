@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { useUserStore } from '@/store/userStore';
+import { continueAfterFirstRunAuth } from '@/navigation/firstRun';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { Text } from '@/components/ui/Text';
 
@@ -31,7 +31,6 @@ const CODE_LENGTH = 6;
 export default function VerifyScreen() {
   const { email, first } = useLocalSearchParams<{ email: string; first?: string }>();
   const firstRun = first === '1';
-  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
   const [code,       setCode]       = useState('');
   const [loading,    setLoading]    = useState(false);
   const [resending,  setResending]  = useState(false);
@@ -46,13 +45,11 @@ export default function VerifyScreen() {
     try {
       const isFirst = await verifyOtp(email ?? '', code.trim());
       if (isFirst) {
-        router.replace('/auth/welcome');
+        router.replace({ pathname: '/auth/welcome', params: firstRun ? { first: '1' } : {} });
       } else if (firstRun) {
-        // Signed in during the first-run offer, but with an account that has
-        // been here before. There is no modal to dismiss — go on to
-        // onboarding, which the restored profile may complete immediately.
-        markAuthPromptSeen();
-        router.replace('/onboarding/welcome');
+        // An account that has been here before: its restored profile has
+        // already completed onboarding, so this lands on Today.
+        continueAfterFirstRunAuth();
       } else {
         router.dismissAll();
       }
@@ -68,7 +65,7 @@ export default function VerifyScreen() {
     } finally {
       setLoading(false);
     }
-  }, [code, email, verifyOtp, firstRun, markAuthPromptSeen]);
+  }, [code, email, verifyOtp, firstRun]);
 
   // Auto-verify when all 6 digits are entered
   const handleCodeChange = useCallback((text: string) => {

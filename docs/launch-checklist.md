@@ -5,6 +5,44 @@ probed against the running backend, not inferred from a successful command.
 
 ---
 
+## 🚨 Incident — 1.2.1 (36) shipped without a backend
+
+**What users saw:** tapping Google opened
+`https://placeholder.supabase.co/auth/v1/authorize`. Email sign-in, Wander's
+real places, photos, sync and account deletion were equally dead; Wander
+showed only the demo examples.
+
+**Cause:** `EXPO_PUBLIC_*` values are inlined when the bundle is built. EAS
+builds on its own machines, and `.env` is gitignored, so it never reaches
+them. The build succeeded with both Supabase values empty, and
+`src/services/supabase.ts` silently fell back to its placeholder. The bundle
+check before release ran a *local* `expo export`, which reads `.env` — the one
+place the values did exist — so it passed.
+
+**A second, independent fault** would have kept Google broken even with the
+URL fixed: the client used supabase-js's default `implicit` OAuth flow, which
+returns tokens in the URL fragment, while `signInWithGoogle` waits for a
+`?code=` that only PKCE sends. Now `flowType: 'pkce'`.
+
+**Fixed:**
+- Both values set as EAS env vars for production, preview and development,
+  verified by hash against `.env`
+- `app.config.js` fails any EAS build or production bundle missing them —
+  proven by running an export with `.env` hidden
+- `verify:backend` checks EAS holds them
+- Sign-in refuses up front when no backend is configured, instead of opening
+  a dead URL
+- `app/auth/callback.tsx` handles the OAuth redirect, including the cold
+  start after Android kills the app in the browser — previously an
+  "Unmatched Route" screen and a lost sign-in
+
+**Shipping the fix:** every change is JavaScript-only and the project
+fingerprint still equals the live build's (`b0f638ee…`), so an EAS Update
+reaches existing installs without a Play review. A new store build is still
+needed so *fresh* installs start fixed — with `fallbackToCacheTimeout: 0`,
+a new install runs its embedded bundle on the first launch and only applies
+the update on the second.
+
 ## ✅ Done — verified against the live project
 
 ### Database

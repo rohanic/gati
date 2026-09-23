@@ -24,7 +24,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { continueAfterFirstRunAuth } from '@/navigation/firstRun';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import { useUserStore, trialDaysLeft } from '@/store/userStore';
@@ -42,7 +43,7 @@ const TRIAL_FEATURES: { icon: string; label: string; desc: string }[] = [
 
 export default function WelcomeScreen() {
   const trialStartedAt = useUserStore((s) => s.trialStartedAt);
-  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
+  const { first } = useLocalSearchParams<{ first?: string }>();
   const daysLeft       = trialDaysLeft(trialStartedAt);
   const trialEndDate   = trialStartedAt
     ? format(addDays(parseISO(trialStartedAt), 7), 'MMM d')
@@ -74,7 +75,10 @@ export default function WelcomeScreen() {
     // user sitting here. Routing back through the root lets it re-decide
     // from the state the sign-in just restored: a returning account may now
     // have onboardingComplete set and should land on Today, not onboarding.
-    markAuthPromptSeen();
+    if (first === '1') {
+      continueAfterFirstRunAuth();
+      return;
+    }
     if (router.canDismiss()) router.dismissAll();
     else router.replace('/');
   };

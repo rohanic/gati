@@ -20,7 +20,45 @@ const path = require('path');
  * So: wire it up automatically when the file is present, and say clearly when
  * it is not.
  */
+/**
+ * A production bundle without a backend must fail to build, not ship.
+ *
+ * EXPO_PUBLIC_* values are inlined when the bundle is produced. EAS builds on
+ * its own machines, where the gitignored .env does not exist, so unless the
+ * values are EAS environment variables they are simply empty — and nothing
+ * errors. Version 1.2.1 (36) went to Play exactly like that: every sign-in
+ * opened https://placeholder.supabase.co, and Wander, photos and sync were
+ * dead for every user.
+ *
+ * Checked on EAS builds and on any production bundle (which includes
+ * `eas update`, since it runs a production export). Development and tests are
+ * left alone so the app still runs locally without a backend.
+ */
+function assertBackendConfigured() {
+  const isEasBuild   = process.env.EAS_BUILD === 'true';
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!isEasBuild && !isProduction) return;
+
+  const missing = ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']
+    .filter((name) => !process.env[name]);
+  if (missing.length === 0) return;
+
+  throw new Error(
+    `\n\n✖ ${missing.join(' and ')} not set for this ${isEasBuild ? 'EAS build' : 'production bundle'}.\n` +
+    '  The app would ship pointing at https://placeholder.supabase.co, with sign-in,\n' +
+    '  Wander and sync all dead. .env is gitignored and never reaches EAS, so set\n' +
+    '  them as EAS environment variables:\n\n' +
+    '    eas env:set --name EXPO_PUBLIC_SUPABASE_URL --value <url> \\\n' +
+    '      --visibility plaintext --environment production --environment preview \\\n' +
+    '      --environment development --non-interactive\n\n' +
+    '  and the same for EXPO_PUBLIC_SUPABASE_ANON_KEY with --visibility sensitive.\n' +
+    '  `npm run verify:backend` checks both are present.\n',
+  );
+}
+
 module.exports = ({ config }) => {
+  assertBackendConfigured();
+
   /**
    * Two places the file can come from, checked in this order:
    *

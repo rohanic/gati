@@ -5,7 +5,7 @@
  * Layout: flex distribution (no absolute positioning) so it works
  * on every device height from iPhone SE to iPad.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,7 +14,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { shouldOfferSignIn } from '@/navigation/firstRun';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -95,8 +96,19 @@ export default function WelcomeScreen() {
       withSpring(0.95, { stiffness: 400, damping: 20 }),
       withSpring(1.0,  { stiffness: 300, damping: 25 })
     );
-    router.push('/onboarding/name');
+    // The sign-in offer comes AFTER the intro, and only once: skipped or
+    // signed in, it is never shown again.
+    router.push(shouldOfferSignIn() ? '/auth?first=1' : '/onboarding/name');
   };
+
+  // The guard above stops a double tap from pushing two screens, but it has
+  // to reopen when this screen regains focus — otherwise someone who backs
+  // out of the sign-in offer returns to a Begin button that does nothing.
+  useFocusEffect(
+    useCallback(() => {
+      beganRef.current = false;
+    }, []),
+  );
 
   return (
     <SafeAreaView style={styles.safe}>

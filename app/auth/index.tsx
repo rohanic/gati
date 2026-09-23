@@ -24,8 +24,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { GoogleSignInButton } from '@/components/ui';
-import { useAuthStore, GoogleSignInConfigError } from '@/store/authStore';
-import { useUserStore } from '@/store/userStore';
+import { useAuthStore, GoogleSignInConfigError, CloudNotConfiguredError } from '@/store/authStore';
+import { continueAfterFirstRunAuth } from '@/navigation/firstRun';
 import { colors, spacing, radius, fontFamily } from '@/theme';
 import { Text } from '@/components/ui/Text';
 
@@ -38,13 +38,11 @@ export default function AuthScreen() {
    */
   const { first } = useLocalSearchParams<{ first?: string }>();
   const firstRun  = first === '1';
-  const markAuthPromptSeen = useUserStore((s) => s.markAuthPromptSeen);
 
   /** The only way out of the first-run screen: remember it, then continue. */
   const leaveFirstRun = useCallback(() => {
-    markAuthPromptSeen();
-    router.replace('/onboarding/welcome');
-  }, [markAuthPromptSeen]);
+    continueAfterFirstRunAuth();
+  }, []);
 
   const [email,            setEmail]           = useState('');
   const [loadingEmail,     setLoadingEmail]     = useState(false);
@@ -96,10 +94,18 @@ export default function AuthScreen() {
       // Disambiguate via the session: userId is only set when sign-in completed.
       // Without this, cancelling the browser dismissed the screen as if signed in.
       if (useAuthStore.getState().userId === null) return; // cancelled → stay on screen
-      if (isFirst) router.replace('/auth/welcome');
-      else if (firstRun) router.replace('/onboarding/welcome');
-      else router.back();
+      if (isFirst) {
+        router.replace({ pathname: '/auth/welcome', params: firstRun ? { first: '1' } : {} });
+      } else if (firstRun) {
+        continueAfterFirstRunAuth();
+      } else {
+        router.back();
+      }
     } catch (e) {
+      if (e instanceof CloudNotConfiguredError) {
+        Alert.alert('Sign-in unavailable', e.message);
+        return;
+      }
       if (e instanceof GoogleSignInConfigError) {
         // The setup is wrong, not the user. Say so plainly and log the fix,
         // rather than leaving the button looking inert.
