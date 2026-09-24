@@ -11,7 +11,6 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useUserStore } from '@/store/userStore';
@@ -99,8 +98,6 @@ export default function CompleteScreen() {
   const titleOp      = useSharedValue(0);
   const titleY       = useSharedValue(20);
   const subOp        = useSharedValue(0);
-  const locationOp   = useSharedValue(0);
-  const locationY    = useSharedValue(16);
   const btnOp        = useSharedValue(0);
   const btnY         = useSharedValue(20);
 
@@ -115,8 +112,6 @@ export default function CompleteScreen() {
 
     subOp.value = withDelay(480, withTiming(1, { duration: 340 }));
 
-    locationOp.value = withDelay(700, withTiming(1, { duration: 320 }));
-    locationY.value  = withDelay(700, withSpring(0, { stiffness: 200, damping: 18 }));
 
     btnOp.value = withDelay(900, withTiming(1, { duration: 320 }));
     btnY.value  = withDelay(900, withSpring(0, { stiffness: 200, damping: 18 }));
@@ -131,22 +126,10 @@ export default function CompleteScreen() {
     transform: [{ translateY: titleY.value }],
   }));
   const subStyle      = useAnimatedStyle(() => ({ opacity: subOp.value }));
-  const locationStyle = useAnimatedStyle(() => ({
-    opacity:   locationOp.value,
-    transform: [{ translateY: locationY.value }],
-  }));
   const btnStyle      = useAnimatedStyle(() => ({
     opacity:   btnOp.value,
     transform: [{ translateY: btnY.value }],
   }));
-
-  const handleLocationAllow = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      await Location.requestForegroundPermissionsAsync();
-    } catch (_) {}
-    launch();
-  };
 
   const launch = () => {
     // Start the 7-day trial here rather than at first sign-in.
@@ -192,33 +175,19 @@ export default function CompleteScreen() {
         Your first 3 numbers are ready. A new one unlocks every midnight.
       </Animated.Text>
 
-      {/* ── Location card ── */}
-      <Animated.View style={[styles.locationCard, locationStyle]}>
-        <View style={styles.locationIcon}>
-          <Ionicons name="location-outline" size={22} color={colors.green700} />
-        </View>
-        <View style={styles.locationText}>
-          <Text style={styles.locationTitle}>Enable location</Text>
-          <Text style={styles.locationSub}>
-            Lets Wander find hidden gems near you
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* ── CTA buttons ── */}
+      {/* ── CTA ──
+          Location is NOT requested here. It used to be this screen's main
+          button, which put the permission dialog in front of people before
+          they had seen the app, let alone Wander — the one feature that uses
+          it. Wander now asks, once, when someone actually wants places near
+          them, which is when the request makes sense to them. */}
       <Animated.View style={[styles.buttons, btnStyle]}>
         <Pressable
-          onPress={handleLocationAllow}
-          style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
-        >
-          <Text style={styles.primaryText}>Allow location & explore</Text>
-        </Pressable>
-
-        <Pressable
           onPress={launch}
-          style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
+          accessibilityRole="button"
         >
-          <Text style={styles.ghostText}>Maybe later</Text>
+          <Text style={styles.primaryText}>Start exploring</Text>
         </Pressable>
       </Animated.View>
     </SafeAreaView>

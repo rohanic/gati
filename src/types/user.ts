@@ -93,6 +93,13 @@ export interface WanderPlace {
    * never be presented as a distance from the user.
    */
   isSample?:      boolean;
+  /**
+   * yyyy-MM-dd the distance was last measured from the user's real position.
+   * Distinct from discoveredDate, which records when the user first saw the
+   * place and is kept stable for the Story timeline — using that for
+   * freshness meant a place re-measured this morning looked a month old.
+   */
+  measuredOn?:    string;
 }
 
 export interface TimelineEntry {

@@ -7,6 +7,7 @@ import {
   parseISO, isValid, subDays,
 } from 'date-fns';
 import type { UserProfile, StatUnlock, WanderPlace, InterestCategory } from '@/types';
+import { haversineKm } from '@/utils/geo';
 import { useClockStore } from './clockStore';
 import { availableKeys } from '@/engine/unlockEngine';
 import { IS_FREE_LAUNCH } from '@/config';
@@ -718,7 +719,12 @@ interface WanderState {
   addPlace:        (place: WanderPlace) => void;
   /** Bulk insert — one store write instead of one per place. */
   addPlaces:       (places: WanderPlace[]) => void;
-  mergeRealPlaces: (fetched: WanderPlace[]) => void;
+  /**
+   * Merge a fresh search. `origin` is the real position it was run from, so
+   * places kept from earlier searches can be re-measured from where the user
+   * is now rather than keeping the distance from wherever they were then.
+   */
+  mergeRealPlaces: (fetched: WanderPlace[], origin?: { lat: number; lon: number }) => void;
   /**
    * Save a place, enforcing the free-tier cap centrally.
    * Returns false when the save was blocked; callers route to /pro.
@@ -738,10 +744,23 @@ interface WanderState {
   setSearchRadiusKm:    (km: number) => void;
 }
 
-/** Offered radii, in kilometres. 10 is the default — near enough to walk or
- *  ride to, wide enough that a quiet neighbourhood still returns results. */
-export const RADIUS_OPTIONS_KM = [2, 5, 10, 25, 50] as const;
-export const DEFAULT_RADIUS_KM = 10;
+/**
+ * Offered radii, in kilometres.
+ *
+ * 500 m to 10 km. The previous set ran to 50 km with 10 as the default, which
+ * is a different city for most people: Wander is for somewhere you would
+ * actually walk or ride to today. 2 km is the default — about a 25-minute
+ * walk, and still enough to return results in a quiet neighbourhood.
+ */
+export const RADIUS_OPTIONS_KM = [0.5, 1, 2, 5, 10] as const;
+export const DEFAULT_RADIUS_KM = 2;
+
+/** The offered radius nearest to `km`. Unknown or broken input gets the default. */
+export function snapRadiusKm(km: unknown): number {
+  if (typeof km !== 'number' || !Number.isFinite(km) || km <= 0) return DEFAULT_RADIUS_KM;
+  return RADIUS_OPTIONS_KM.reduce((best, o) =>
+    Math.abs(o - km) < Math.abs(best - km) ? o : best, RADIUS_OPTIONS_KM[0] as number);
+}
 
 const DEFAULT_SCORES: Record<string, number> = {
   food: 1.0, cafe: 1.0, history: 1.0, nature: 1.0,
@@ -774,8 +793,9 @@ export const useWanderStore = create<WanderState>()(
           return { places: [...s.places, ...fresh] };
         }),
 
-      mergeRealPlaces: (fetched) =>
+      mergeRealPlaces: (fetched, origin) =>
         set((s) => {
+          const measuredOn = format(new Date(), 'yyyy-MM-dd');
           const prevById = new Map(s.places.map((p) => [p.placeId, p]));
 
           // Fresh data from Google Places, user flags carried over.
@@ -792,8 +812,9 @@ export const useWanderStore = create<WanderState>()(
                   userRating:     prev.userRating,
                   visitedDate:    prev.visitedDate,
                   discoveredDate: prev.discoveredDate ?? f.discoveredDate,
+                  measuredOn,
                 }
-              : f;
+              : { ...f, measuredOn };
           });
 
           // Keep previous places only if the user acted on them; prune the
@@ -802,6 +823,11 @@ export const useWanderStore = create<WanderState>()(
           const today = new Date();
           const keepers = s.places.filter((p) => {
             if (fetchedIds.has(p.placeId)) return false;   // already merged
+            // The built-in demo places are invented. Once real places exist
+            // they go — all of them. They used to survive here for days and
+            // sat in the feed between real results, which is most of why the
+            // list looked random.
+            if (p.isSample) return false;
             if (p.isSaved || p.isVisited || p.userRating !== null) return true;
             // Google places not re-fetched are stale — today's fetch already
             // has the best quality-filtered candidates.
@@ -811,7 +837,19 @@ export const useWanderStore = create<WanderState>()(
             return isValid(discovered) && differenceInDays(today, discovered) < WANDER_STALE_DAYS;
           });
 
-          return { places: [...merged, ...keepers] };
+          // Re-measure what is kept from where the user is NOW. A café rated
+          // last month in another city otherwise still reads "0.8 km".
+          const remeasured = origin
+            ? keepers.map((p) => ({
+                ...p,
+                distanceKm: Math.round(
+                  haversineKm(origin.lat, origin.lon, p.latitude, p.longitude) * 10,
+                ) / 10,
+                measuredOn,
+              }))
+            : keepers;
+
+          return { places: [...merged, ...remeasured] };
         }),
 
       savePlace: (placeId) => {
@@ -924,14 +962,13 @@ export const useWanderStore = create<WanderState>()(
           return { categoryScores: next };
         }),
 
-      setSearchRadiusKm: (km) =>
-        set(() => ({
-          searchRadiusKm: Math.min(50, Math.max(1, Math.round(km))),
-        })),
+      // Snap to an offered value. The old Math.round turned 0.5 into 1, so a
+      // 500 m radius could never have been selected.
+      setSearchRadiusKm: (km) => set(() => ({ searchRadiusKm: snapRadiusKm(km) })),
     }),
     {
       name:    'gati-wander',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ _hasHydrated, ...rest }) => rest,
       onRehydrateStorage: () => () => {
@@ -968,6 +1005,21 @@ export const useWanderStore = create<WanderState>()(
             searchRadiusKm: typeof next.searchRadiusKm === 'number'
               ? next.searchRadiusKm
               : DEFAULT_RADIUS_KM,
+          };
+        }
+        // v2 → v3: radius options became 0.5–10 km with a 2 km default.
+        // 10 km was the old DEFAULT, not a choice almost anyone made, and it
+        // is the "area is too big" that prompted this — so it moves to the
+        // new default. 25 and 50 are no longer offered and snap to 10.
+        // Demo places are dropped; real ones return on the next search.
+        if (fromVersion < 3) {
+          const r = next.searchRadiusKm;
+          next = {
+            ...next,
+            searchRadiusKm: r === 10 || r === undefined ? DEFAULT_RADIUS_KM : snapRadiusKm(r),
+            places: Array.isArray(next.places)
+              ? next.places.filter((p) => !p?.isSample)
+              : [],
           };
         }
         return next as WanderState;

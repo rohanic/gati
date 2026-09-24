@@ -157,7 +157,7 @@ export function formatStatCompact(value: number): string {
  * outside context — local weather, what is on in their city. All of it
  * requires sending the user's location to a server and keeping it there,
  * which would contradict the Data Safety declaration this app ships with
- * ("approximate location, processed ephemerally, never stored against a
+ * ("processed ephemerally, never stored against a
  * user") and turn a one-line copy change into a privacy-policy change.
  *
  * The user's own body is a better source and costs nothing. Everything

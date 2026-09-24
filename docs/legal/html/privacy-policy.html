@@ -216,11 +216,14 @@
   <h3 class="gtl-h3">Whether or not you have an account</h3>
   <ul class="gtl-list">
     <li class="gtl-li">
-      <span class="gtl-strong">Approximate location</span>, when you use the Wander tab and grant
-      permission. It is sent to our server to search for nearby places and is
-      <span class="gtl-strong">not stored against you</span>. Results are cached against a coordinate
-      rounded to roughly one kilometre, so a cached area cannot be traced back to an
-      individual. Your precise position is never written to a database.
+      <span class="gtl-strong">Location</span>, only when you use the Wander tab and grant
+      permission. Your position is sent to our server for that one search, so it can
+      find places within the distance you chose &mdash; as close as 500 metres, which
+      needs your actual position rather than a rough area. It is
+      <span class="gtl-strong">used for the search and then discarded: never stored against you,
+      never kept as a history</span>. Results are cached against a small area with no link
+      to who asked, so a cached result cannot be traced back to you. Gati never uses
+      location in the background.
     </li>
     <li class="gtl-li">
       <span class="gtl-strong">Place ratings</span>, if you rate a place while signed in. Stored as a
@@ -253,7 +256,7 @@
       <tbody>
         <tr><td class="gtl-td"><span class="gtl-strong">Supabase</span></td><td class="gtl-td">Your account data, only if you sign in</td><td class="gtl-td">Database, authentication, backup</td></tr>
         <tr><td class="gtl-td"><span class="gtl-strong">Google Play Services</span></td><td class="gtl-td">Your Google account, if you choose Google sign-in</td><td class="gtl-td">Authentication</td></tr>
-        <tr><td class="gtl-td"><span class="gtl-strong">Google Places</span></td><td class="gtl-td">An approximate coordinate, via our server</td><td class="gtl-td">Finding real places near you</td></tr>
+        <tr><td class="gtl-td"><span class="gtl-strong">Google Places</span></td><td class="gtl-td">The search position and radius, via our server &mdash; nothing about you</td><td class="gtl-td">Finding real places near you</td></tr>
         <tr><td class="gtl-td"><span class="gtl-strong">Google Play Billing</span></td><td class="gtl-td">Handled entirely by Google</td><td class="gtl-td">Subscriptions, if you buy one</td></tr>
         <tr><td class="gtl-td"><span class="gtl-strong">Expo Push / Firebase</span></td><td class="gtl-td">A device push token</td><td class="gtl-td">Delivering notifications</td></tr>
         <tr><td class="gtl-td"><span class="gtl-strong">OpenAI</span></td><td class="gtl-td">A place name and category &mdash; never anything about you</td><td class="gtl-td">One-line &ldquo;why this place&rdquo; blurbs</td></tr>

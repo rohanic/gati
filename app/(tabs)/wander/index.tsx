@@ -39,7 +39,7 @@ import * as Haptics from 'expo-haptics';
 import { useWanderStore, useUserStore, FREE_SAVE_LIMIT, RADIUS_OPTIONS_KM } from '@/store/userStore';
 import { getInitialWanderPlaces } from '@/data/samplePlaces';
 import { fetchNearbyPlaces, haversineKm, PlacesRateLimitedError } from '@/services/placesService';
-import { getUnifiedPersonalizedFeed, isInterestMatch } from '@/engine/wanderEngine';
+import { buildNearbyFeed, isInterestMatch } from '@/engine/wanderEngine';
 import { explainRelevance, relevanceReason } from '@/engine/relevance';
 import { computeLifeStats } from '@/engine/statsEngine';
 import {
@@ -82,30 +82,84 @@ function SectionHeader({
 // ─── Location banner ─────────────────────────────────────────────
 // Two states: can still ask (request in-app) vs permanently denied
 // (deep-link to system settings — the request dialog won't show again).
-function LocationBanner({
-  onGrant,
-  permanentlyDenied,
-}: {
-  onGrant:           () => void;
-  permanentlyDenied: boolean;
-}) {
+/**
+ * Re-search once the user has moved this far. Half the smallest radius: with
+ * 500 m on offer, the old 5 km threshold meant the list could describe
+ * somewhere the user had long since walked away from.
+ */
+const LOCATION_THRESHOLD_KM = 0.25;
+/** A GPS fix costs battery; re-check position on focus at most this often. */
+const LOCATION_CHECK_MIN_MS = 10 * 60 * 1000;
+
+type LocationCardState = 'ask' | 'denied' | 'servicesOff' | 'rateLimited' | 'failed';
+
+/** "500 m", "1 km", "2.5 km". */
+export function formatRadius(km: number): string {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${Number.isInteger(km) ? km : km.toFixed(1)} km`;
+}
+
+/**
+ * The single location message. It replaces two banners that could show at
+ * once, both asking for location in different words.
+ *
+ * Every state has one plain sentence about what is wrong and at most one
+ * button that fixes it. Nothing here requests anything by itself — each
+ * system dialog appears only behind the button the user pressed.
+ */
+const LOCATION_COPY: Record<LocationCardState, { icon: string; title: string; body: string; action?: string }> = {
+  ask: {
+    icon:   'location-outline',
+    title:  'Find good places near you',
+    body:   'Wander uses your location only while it searches. It is never stored or shared.',
+    action: 'Show places near me',
+  },
+  denied: {
+    icon:   'location-outline',
+    title:  'Location permission is off',
+    body:   'Allow location for Gati in Settings to see places near you.',
+    action: 'Open Settings',
+  },
+  servicesOff: {
+    icon:   'navigate-circle-outline',
+    title:  'Your phone’s location is off',
+    body:   'Turn it on and Wander will search around you.',
+    action: 'Turn on location',
+  },
+  rateLimited: {
+    icon:   'time-outline',
+    title:  'Too many searches for now',
+    body:   'Places will load again in a few minutes.',
+  },
+  failed: {
+    icon:   'cloud-offline-outline',
+    title:  'Couldn’t load places near you',
+    body:   'Check your connection and try again.',
+    action: 'Try again',
+  },
+};
+
+function LocationCard({ state, onAction }: { state: LocationCardState; onAction: () => void }) {
+  const copy = LOCATION_COPY[state];
   return (
-    <Pressable onPress={onGrant} style={styles.locationBanner}>
+    <View style={styles.locationBanner}>
       <View style={styles.locationIcon}>
-        <Ionicons name="location-outline" size={20} color={colors.green700} />
+        <Ionicons name={copy.icon as any} size={20} color={colors.green700} />
       </View>
       <View style={styles.locationText}>
-        <Text style={styles.locationTitle}>
-          {permanentlyDenied ? 'Location is off' : 'Find real places near you'}
-        </Text>
-        <Text style={styles.locationSub}>
-          {permanentlyDenied
-            ? 'Open Settings to let Wander search around you'
-            : 'Real cafés, parks & museums from the map. Never tracked, never stored.'}
-        </Text>
+        <Text style={styles.locationTitle}>{copy.title}</Text>
+        <Text style={styles.locationSub}>{copy.body}</Text>
+        {copy.action && (
+          <Pressable
+            onPress={onAction}
+            style={styles.locationAction}
+            android_ripple={{ color: colors.green50 }}
+            accessibilityRole="button"
+          >
+            <Text style={styles.locationActionText}>{copy.action}</Text>
+          </Pressable>
+        )}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-    </Pressable>
+    </View>
   );
 }
 
@@ -245,9 +299,13 @@ export default function WanderScreen() {
   const [rateLimited,   setRateLimited]             = useState(false);
   const [refreshing, setRefreshing]                 = useState(false);
   const [lastFetchedAt, setLastFetchedAt]           = useState<Date | null>(null);
-  // Rotation offset — incremented by FEED_SIZE on each refresh so pull-to-refresh
-  // surfaces a fresh batch from the stored pool without a network call.
-  const [displayOffset, setDisplayOffset]           = useState(0);
+  /**
+   * The phone's location switch is off (distinct from permission). Detected
+   * with hasServicesEnabledAsync, which shows nothing, so the screen can say
+   * so and offer one button — instead of every position request opening
+   * Android's "turn on location" dialog uninvited.
+   */
+  const [servicesOff, setServicesOff]               = useState(false);
   // Ticks every 60 s so stalenessLabel recomputes without a user action.
   const [stalenessTick, setStalenessTick]           = useState(0);
 
@@ -257,6 +315,12 @@ export default function WanderScreen() {
   const lastActiveMs        = useRef(Date.now());
   /** Last GPS fix used to fetch real places — compare on tab focus. */
   const lastFetchCoordsRef  = useRef<{ lat: number; lon: number } | null>(null);
+  /**
+   * Radii already searched from the current spot. Switching back to one of
+   * them only re-filters what is stored — no request, nothing counted against
+   * the hourly search limit. Cleared as soon as the user moves.
+   */
+  const fetchedRadiiRef     = useRef<Set<number>>(new Set());
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -334,19 +398,38 @@ export default function WanderScreen() {
     inFlightRef.current = true;
     if (mountedRef.current) setFetchingPlaces(true);
     try {
+      // Location switch off → say so. Checked first because the position call
+      // below would otherwise fail slowly, or — with Android's default
+      // mayShowUserSettingsDialog: true — open the "turn on location" dialog
+      // every time Wander was opened, refreshed or refocused.
+      const servicesOn = await Location.hasServicesEnabledAsync().catch(() => true);
+      if (!servicesOn) {
+        if (mountedRef.current) setServicesOff(true);
+        ensureFallbackPlaces();
+        return;
+      }
+      if (mountedRef.current) setServicesOff(false);
+
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
+        // Only an explicit tap on "Turn on location" may raise that dialog.
+        mayShowUserSettingsDialog: false,
       });
       const { latitude, longitude } = pos.coords;
+      // Moved since the last search? Then no stored radius describes here.
+      const prev = lastFetchCoordsRef.current;
+      if (!prev || haversineKm(prev.lat, prev.lon, latitude, longitude) >= LOCATION_THRESHOLD_KM) {
+        fetchedRadiiRef.current.clear();
+      }
       lastFetchCoordsRef.current = { lat: latitude, lon: longitude };
+      const radiusKm = useWanderStore.getState().searchRadiusKm;
 
-      const real = await fetchNearbyPlaces(
-        latitude,
-        longitude,
-        useWanderStore.getState().searchRadiusKm * 1000,
-      );
+      const real = await fetchNearbyPlaces(latitude, longitude, radiusKm * 1000);
       if (real.length > 0) {
-        mergeRealPlaces(real);
+        fetchedRadiiRef.current.add(radiusKm);
+        // Pass the origin so places kept from earlier searches are re-measured
+        // from here, not left with the distance from wherever they were found.
+        mergeRealPlaces(real, { lat: latitude, lon: longitude });
         fetchedRef.current = true;
         if (mountedRef.current) {
           setFetchedThisSession(true);
@@ -396,6 +479,20 @@ export default function WanderScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * The only place Android's "turn on location" dialog may appear: behind a
+   * button the user pressed.
+   */
+  const turnOnLocation = useCallback(async () => {
+    try {
+      await Location.enableNetworkProviderAsync();
+    } catch {
+      // Declined. The card stays and says why; nothing else to do.
+    }
+    fetchedRef.current = false;
+    loadRealPlaces(true);
+  }, [loadRealPlaces]);
+
   const requestLocation = useCallback(async () => {
     // Permanently denied → the OS dialog won't appear; open Settings
     if (!canAskAgain) {
@@ -415,8 +512,7 @@ export default function WanderScreen() {
   // skipped entirely when there is no previous fetch to compare against. The
   // old version took a fresh fix on EVERY tab focus — including when it had
   // nothing to compare it to — and re-fired whenever the place list changed.
-  const LOCATION_THRESHOLD_KM  = 5;
-  const LOCATION_CHECK_MIN_MS  = 10 * 60 * 1000;
+
   const lastGeoCheckRef        = useRef(0);
 
   useFocusEffect(
@@ -426,7 +522,11 @@ export default function WanderScreen() {
       if (Date.now() - lastGeoCheckRef.current < LOCATION_CHECK_MIN_MS) return;
       lastGeoCheckRef.current = Date.now();
 
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest })
+      if (servicesOff) return;
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Lowest,
+        mayShowUserSettingsDialog: false,
+      })
         .then((pos) => {
           if (!mountedRef.current) return;
           const last = lastFetchCoordsRef.current;
@@ -440,7 +540,7 @@ export default function WanderScreen() {
           }
         })
         .catch(() => { /* location unavailable — skip silently */ });
-    }, [locationGranted, loadRealPlaces]),
+    }, [locationGranted, loadRealPlaces, servicesOff]),
   );
 
   // ── Life stats for Numbers bridge ──
@@ -471,8 +571,9 @@ export default function WanderScreen() {
   // Saved places sort first, then prefix matches, then alphabetical.
   const searchResults = useMemo(() => {
     if (!searchTrimmed) return null;
+    const hasReal = places.some((p) => !p.isSample);
     return places
-      .filter((p) => p.name.toLowerCase().includes(searchTrimmed))
+      .filter((p) => (!hasReal || !p.isSample) && p.name.toLowerCase().includes(searchTrimmed))
       .sort((a, b) => {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
         const aStarts = a.name.toLowerCase().startsWith(searchTrimmed);
@@ -482,8 +583,6 @@ export default function WanderScreen() {
       });
   }, [places, searchTrimmed]);
 
-  // Feed size: always exactly 5 places
-  const FEED_SIZE = 5;
 
   // ── Saved & Visited (category-chip aware) ──
   const filteredSaved = useMemo(() => {
@@ -496,26 +595,33 @@ export default function WanderScreen() {
     return activeCategory === 'all' ? visited : visited.filter((p) => p.category === activeCategory);
   }, [places, activeCategory]);
 
-  // ── Unified personalised feed ──
-  // Draws from userInterests ∪ bridgeCategories — never shows random categories.
-  // Stat-bridge places get a ranking bonus so behaviour influences surfacing.
-  // Pull-to-refresh rotates the display window via displayOffset.
-  const personalFeed = useMemo(() => {
-    return getUnifiedPersonalizedFeed(
-      places,
-      categoryScores,
-      userInterests,
-      bridgeCategories,
-      FEED_SIZE,
-      displayOffset,
-      activeCategory === 'all' ? undefined : activeCategory,
-    );
-  }, [places, categoryScores, userInterests, bridgeCategories, FEED_SIZE, displayOffset, activeCategory]);
+  // ── The feed: everything within the chosen radius, best first ──
+  // Deterministic — same place, same order, every time. See buildNearbyFeed
+  // for why the old rotating five-place window read as random.
+  const feed = useMemo(
+    () => buildNearbyFeed(
+      places, categoryScores, userInterests, bridgeCategories,
+      searchRadiusKm, activeCategory,
+    ),
+    [places, categoryScores, userInterests, bridgeCategories, searchRadiusKm, activeCategory],
+  );
+
+  /**
+   * Which location card, if any. Exactly one message at a time — the old
+   * screen could show a permission banner and a "curated places" card
+   * together, both asking for location.
+   */
+  const locationCardState: LocationCardState | null =
+    locationGranted === false ? (canAskAgain ? 'ask' : 'denied')
+    : servicesOff             ? 'servicesOff'
+    : rateLimited             ? 'rateLimited'
+    : usingFallback && locationGranted ? 'failed'
+    : null;
 
   const hasAnything =
     // When search is active, the search section always renders (has its own empty state)
     searchResults !== null ||
-    filteredSaved.length + personalFeed.length + filteredVisited.length > 0;
+    filteredSaved.length + feed.forYou.length + feed.nearby.length + filteredVisited.length > 0;
 
   const handlePress   = useCallback((placeId: string) => {
     router.push({ pathname: '/(tabs)/wander/[placeId]', params: { placeId } });
@@ -538,10 +644,8 @@ export default function WanderScreen() {
   }, [savePlace]);
 
   const handleRefresh = useCallback(() => {
-    // Always rotate the display window immediately — instant variety even
-    // when offline. The pool wraps, so users never hit a dead end.
-    setDisplayOffset((prev) => prev + FEED_SIZE);
-
+    // A refresh searches again from where the user is now. It no longer
+    // rotates the list, which pushed the best places out on every pull.
     if (locationGranted) {
       setRefreshing(true);
       fetchedRef.current = false;
@@ -552,7 +656,7 @@ export default function WanderScreen() {
       setRefreshing(true);
       setTimeout(() => setRefreshing(false), 500);
     }
-  }, [locationGranted, loadRealPlaces, FEED_SIZE]);
+  }, [locationGranted, loadRealPlaces]);
 
   // ── Header entrance ──
   const headerStyle = useEntrance({ duration: 360, translateY: -8 });
@@ -587,7 +691,6 @@ export default function WanderScreen() {
           {lastFetchedAt !== null && (
             <Pressable
               onPress={() => {
-                setDisplayOffset((prev) => prev + FEED_SIZE);
                 fetchedRef.current = false;
                 setFetchedThisSession(false);
                 if (locationGranted) loadRealPlaces(true);
@@ -611,47 +714,20 @@ export default function WanderScreen() {
         </View>
       </Animated.View>
 
-      {/* ── Location banner (only shown before sample data loads) ── */}
-      {locationGranted === false && !usingFallback && (
-        <LocationBanner
-          onGrant={requestLocation}
-          permanentlyDenied={!canAskAgain}
+      {/* ── One location card: what is wrong, and one thing to do about it ── */}
+      {!fetchingPlaces && locationCardState && (
+        <LocationCard
+          state={locationCardState}
+          onAction={
+            locationCardState === 'servicesOff' ? turnOnLocation
+            : locationCardState === 'failed'    ? () => { fetchedRef.current = false; loadRealPlaces(true); }
+            : requestLocation
+          }
         />
       )}
 
       {/* ── Fetching real places ── */}
       {fetchingPlaces && <FetchingBanner />}
-
-      {/* ── Sample-data / re-grant nudge ── */}
-      {usingFallback && !fetchingPlaces && (
-        <View style={styles.fallbackCard}>
-          <View style={styles.fallbackCardRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            <View style={styles.fallbackCardBody}>
-              <Text style={styles.fallbackCardTitle}>Showing curated places</Text>
-              <Text style={styles.fallbackCardSub}>
-                {rateLimited
-                  ? 'You’ve searched a lot in a short time. Real places come back in a few minutes.'
-                  : locationGranted === false
-                    ? 'Enable location to discover real places near you.'
-                    : 'Could not load nearby places. Pull down to retry.'}
-              </Text>
-            </View>
-          </View>
-          {locationGranted === false && (
-            <Pressable
-              style={styles.fallbackCardBtn}
-              onPress={requestLocation}
-              accessibilityRole="button"
-            >
-              <Text style={styles.fallbackCardBtnText}>
-                {canAskAgain ? 'Enable location' : 'Open Settings'}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={colors.green700} />
-            </Pressable>
-          )}
-        </View>
-      )}
 
       {/* ── Search bar ── */}
       <View style={styles.searchRow}>
@@ -675,7 +751,14 @@ export default function WanderScreen() {
           nearby and practically useless. Rather than pick one radius for
           everyone, let the user say how far they are willing to go: a dense
           city wants 2 km, a small town needs 25. Changing it refetches. */}
-      <View style={styles.radiusRow}>
+      {/* Scrolls rather than wraps: five chips and a label are ~380 dp, wider
+          than a 360 dp phone once "500 m" is on the list. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.radiusRow}
+        style={styles.radiusScroll}
+      >
         <Ionicons name="resize-outline" size={13} color={colors.textMuted} />
         <Text style={styles.radiusLabel}>Within</Text>
         {RADIUS_OPTIONS_KM.map((km) => {
@@ -687,26 +770,31 @@ export default function WanderScreen() {
                 if (km === searchRadiusKm) return;
                 Haptics.selectionAsync();
                 setSearchRadiusKm(km);
-                // The previous results were bounded by the old radius, so
-                // they are wrong either way now — widen or narrow, refetch.
-                fetchedRef.current = false;
-                if (locationGranted) loadRealPlaces(true);
+                // The feed re-filters to the new radius immediately. Search
+                // again only if this radius has not been searched from here —
+                // narrowing to 500 m still needs its own search, because a
+                // wider search returns the most popular places across the
+                // whole circle, not the best ones within 500 m.
+                if (locationGranted && !fetchedRadiiRef.current.has(km)) {
+                  fetchedRef.current = false;
+                  loadRealPlaces(true);
+                }
               }}
               style={[styles.radiusChip, active && styles.radiusChipActive]}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={`Search within ${km} kilometres`}
+              accessibilityLabel={`Search within ${formatRadius(km)}`}
             >
               <Text
                 style={[styles.radiusChipText, active && styles.radiusChipTextActive]}
                 maxFontSizeMultiplier={1.3}
               >
-                {km} km
+                {formatRadius(km)}
               </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* ── Category chips ── */}
       <CategoryChips active={activeCategory} onChange={setActiveCategory} />
@@ -787,13 +875,13 @@ export default function WanderScreen() {
         )}
 
         {/* ── 2. Picked for you ──
-            Unified feed of exactly 5 places from the user's interest
-            categories + stat-inferred categories (coffee → café, steps → nature).
-            Pull-to-refresh rotates the pool via displayOffset. ── */}
-        {searchResults === null && personalFeed.length > 0 && (
+            The best places in range for the user's interests and for what
+            their numbers suggest (coffee → café, steps → nature). Ranked, not
+            rotated: the same list until the user moves or the places change. */}
+        {searchResults === null && feed.forYou.length > 0 && (
           <View style={filteredSaved.length > 0 ? styles.section : undefined}>
-            <ForYouHeader count={personalFeed.length} />
-            {personalFeed.map((place, i) => (
+            <ForYouHeader count={feed.forYou.length} />
+            {feed.forYou.map((place, i) => (
               <PlaceCard
                 key={place.placeId}
                 place={place}
@@ -812,10 +900,49 @@ export default function WanderScreen() {
                   : undefined}
               />
             ))}
-            <View style={styles.rotationHint}>
-              <Ionicons name="refresh-outline" size={11} color={colors.textMuted} />
-              <Text style={styles.rotationHintText}>Pull down for a fresh batch</Text>
-            </View>
+          </View>
+        )}
+
+        {/* ── 3. Near you — everything else in range, best first ── */}
+        {searchResults === null && feed.nearby.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader
+              title={feed.examplesOnly
+                ? 'Examples'
+                : fetchedThisSession
+                  ? `Near you · within ${formatRadius(searchRadiusKm)}`
+                  : `Near your last search · within ${formatRadius(searchRadiusKm)}`}
+              icon={feed.examplesOnly ? 'sparkles-outline' : 'navigate-outline'}
+              count={feed.nearby.length}
+            />
+            {feed.nearby.map((place, i) => (
+              <PlaceCard
+                key={place.placeId}
+                place={place}
+                index={filteredSaved.length + feed.forYou.length + i}
+                onPress={handlePress}
+                onSave={handleSave}
+                onUnsave={unsavePlace}
+                isInterestMatch={isInterestMatch(place, userInterests)}
+                reason={feed.examplesOnly ? undefined : relevanceReason(
+                  explainRelevance(place, categoryScores, userInterests),
+                  place,
+                )}
+                statContext={lifeStats
+                  ? getPlaceContextLine(place.category, lifeStats, profile ?? undefined) ?? undefined
+                  : undefined}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* ── Nothing in range, but real places exist further out ── */}
+        {searchResults === null && !feed.examplesOnly && feed.forYou.length + feed.nearby.length === 0
+          && places.some((p) => !p.isSample) && searchRadiusKm < 10 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="resize-outline" size={30} color={colors.green300} />
+            <Text style={styles.emptyTitle}>Nothing within {formatRadius(searchRadiusKm)}</Text>
+            <Text style={styles.emptySub}>Try a wider radius above.</Text>
           </View>
         )}
 
@@ -914,6 +1041,21 @@ const styles = StyleSheet.create({
     color:      colors.green700,
   },
 
+  locationAction: {
+    alignSelf:         'flex-start',
+    marginTop:         spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical:   spacing[2],
+    borderRadius:      radius.full,
+    backgroundColor:   colors.green700,
+    minHeight:         40,
+    justifyContent:    'center',
+  },
+  locationActionText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize:   13,
+    color:      colors.white,
+  },
   locationBanner: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -971,52 +1113,6 @@ const styles = StyleSheet.create({
   },
 
   // Sample-data / re-grant card
-  fallbackCard: {
-    marginHorizontal: spacing[5],
-    marginBottom:     spacing[3],
-    backgroundColor:  colors.surface2,
-    borderRadius:     radius.lg,
-    borderWidth:      1,
-    borderColor:      colors.borderLight,
-    padding:          spacing[4],
-    gap:              spacing[3],
-  },
-  fallbackCardRow: {
-    flexDirection: 'row',
-    alignItems:    'flex-start',
-    gap:           spacing[3],
-  },
-  fallbackCardBody: {
-    flex: 1,
-    gap:  spacing[1],
-  },
-  fallbackCardTitle: {
-    fontFamily: fontFamily.semiBold,
-    fontSize:   13,
-    color:      colors.textPrimary,
-  },
-  fallbackCardSub: {
-    fontFamily: fontFamily.regular,
-    fontSize:   12,
-    color:      colors.textSecondary,
-    lineHeight: 17,
-  },
-  fallbackCardBtn: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'center',
-    gap:              spacing[2],
-    backgroundColor:  colors.green50,
-    borderRadius:     radius.md,
-    paddingVertical:  spacing[2] + 2,
-    borderWidth:      1,
-    borderColor:      colors.green100,
-  },
-  fallbackCardBtnText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize:   13,
-    color:      colors.green700,
-  },
 
   // Search bar
   searchRow: {
@@ -1047,6 +1143,7 @@ const styles = StyleSheet.create({
 
   section: { marginTop: spacing[5] },
 
+  radiusScroll: { flexGrow: 0 },
   radiusRow: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -1166,19 +1263,6 @@ const styles = StyleSheet.create({
   },
 
   // Rotation hint
-  rotationHint: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'center',
-    gap:            spacing[1] + 1,
-    marginTop:      spacing[3],
-    marginBottom:   spacing[1],
-  },
-  rotationHintText: {
-    fontFamily: fontFamily.regular,
-    fontSize:   11,
-    color:      colors.textMuted,
-  },
 
   // Empty
   emptyState: {

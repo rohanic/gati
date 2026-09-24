@@ -90,46 +90,40 @@ computed from them.
 
 *Source: `UserProfile`, `computeLifeStats`.*
 
-### Location → Approximate location
+### Location → **Precise location**
 
 | Field | Answer |
 |---|---|
 | Collected | **Yes** |
 | Shared | No |
 | **Processed ephemerally** | **Yes** |
-| Required or optional | **Optional** — Wander degrades to curated places |
+| Required or optional | **Optional** — Wander shows examples without it |
 | Purpose | App functionality |
 
-The coordinate is **rounded to 2 decimal places — about 1.1 km — before it
-leaves the device**, and that is what the search receives. Play draws the
-line between precise and approximate at 3 km², a circle of roughly 1 km, so
-a 1.1 km cell is approximate by its definition.
+**Changed from Approximate on 24 Sep 2026 — update the Play Console form to
+match before releasing build 37.**
 
-This ordering is the whole point. The server also rounds for its cache key,
-but that would be too late on its own: the precise value would already have
-been transmitted, and this declaration would be false. Coarsening happens on
-the device, before the request.
+Wander offers radii down to 500 m. Finding the right places within 500 m
+needs the user's actual position: rounding it to ~1.1 km first, as an earlier
+version did, put the search centre up to 800 m off, and Google's top 20 for
+that shifted circle contained almost nothing inside the real 500 m. Play
+defines precise location as anything narrower than 3 km² — roughly a 1 km
+circle — so this is precise, and the form must say so.
 
-Nothing the user sees is worse for it. The device keeps its exact fix and
-uses it locally for the distance on every card and for the radius filter;
-the search radius sent up is widened by the worst-case rounding offset so a
-coarser centre cannot cut off a place that is genuinely in range.
+What keeps it minimal:
 
-**Not stored against any user** either way.
+- **Processed ephemerally.** The position is used for the one search the
+  user asked for and then discarded. It is never written against a user, and
+  there is no location history.
+- The server's result cache is keyed by a ~110 m cell (1.1 km for searches
+  wider than 2 km) with no user attached, so a cached result cannot be traced
+  to anyone.
+- Foreground only. `ACCESS_BACKGROUND_LOCATION` is blocked in `app.json`.
+- Asked for only in Wander, behind a button — never at launch or during
+  onboarding.
 
-*Source: `placesService.COORD_DECIMALS`, `coarsen()`, and the
-`searchRadiusM` widening in `fetchNearbyPlaces`.*
-
-> Do **not** declare precise location — but the reason matters, because it
-> changed. `ACCESS_FINE_LOCATION` is still requested: an exact fix is what
-> makes the distance on each card correct, and a coarse-only permission
-> would put it out by kilometres. What makes the declaration true is that
-> the exact fix never leaves the phone. Data Safety asks what is
-> *collected*, meaning transmitted off device, and what is transmitted is a
-> coordinate rounded to ~1.1 km.
->
-> No trail is ever stored, and `ACCESS_BACKGROUND_LOCATION` is blocked
-> outright.
+*Source: `fetchNearbyPlaces` sends `latitude`/`longitude` unmodified; cache
+key in `supabase/functions/nearby-places`.*
 
 ### App activity → Other actions
 
@@ -165,7 +159,7 @@ payment details ever reach the app** — Google Play handles all of it.
 
 Verified absent from the codebase:
 
-- Precise location, background location, location history
+- Background location, location history
 - Contacts, calendar, photos, videos, audio, files
 - Health or fitness data *(the numbers are arithmetic on self-reported answers,
   not sensor readings — do not declare Health and fitness)*

@@ -88,68 +88,6 @@ export function segmentPlaces(
 }
 
 // ─── Unified smart feed ───────────────────────────────────────────────
-/**
- * Returns exactly `count` places drawn from the union of:
- *   1. User's declared interest categories (onboarding)
- *   2. Stat-inferred categories (e.g. high coffee → café, many steps → nature)
- *
- * Nothing outside this combined set ever appears in the feed.
- * Pull-to-refresh increments `offset` to rotate through the pool.
- *
- * Ranking:
- *   - Base: full relevance score (taste × proximity × quality × context)
- *   - Boost: ×1.35 for a stat-bridge category
- */
-export function getUnifiedPersonalizedFeed(
-  places:           WanderPlace[],
-  categoryScores:   Record<string, number>,
-  userInterests:    InterestCategory[],
-  bridgeCategories: InterestCategory[],   // from active stat bridges
-  count:            number = 5,
-  offset:           number = 0,
-  activeCategory?:  string,              // specific chip overrides filter
-  excludeIds?:      Set<string>,
-): WanderPlace[] {
-  // When a category chip is active, only show that category.
-  // Otherwise, restrict to interests ∪ bridge-inferred categories.
-  // If the user has neither, fall back to all undiscovered places.
-  const effectiveCategories: Set<string> | null =
-    activeCategory && activeCategory !== 'all'
-      ? new Set([activeCategory])
-      : userInterests.length + bridgeCategories.length > 0
-        ? new Set([...userInterests, ...bridgeCategories])
-        : null;   // null = no filter (new user with no interests yet)
-
-  const bridgeSet = new Set<string>(bridgeCategories);
-
-  const eligible = places.filter((p) => {
-    if (p.isSaved || p.isVisited) return false;
-    if (excludeIds?.has(p.placeId)) return false;
-    if (effectiveCategories !== null) return effectiveCategories.has(p.category);
-    return true;
-  });
-
-  if (eligible.length === 0) return [];
-
-  const ranked = eligible
-    .map((p) => ({
-      place: p,
-      // Stat-bridge boost, MULTIPLICATIVE to match the rest of the model. It
-      // was `+ 0.4`, which in a multiplicative score (typically 0.05–2.0)
-      // would have swamped every other signal including distance.
-      score: scorePlace(p, categoryScores, userInterests)
-           * (bridgeSet.has(p.category) ? 1.35 : 1),
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  const total     = ranked.length;
-  const safeStart = offset % total;
-  const feed: WanderPlace[] = [];
-  for (let i = 0; i < count && i < total; i++) {
-    feed.push(ranked[(safeStart + i) % total].place);
-  }
-  return feed;
-}
 
 // ─── Personalized feed (legacy — use getUnifiedPersonalizedFeed) ──────────
 /**
@@ -280,7 +218,10 @@ export function pickWanderNudge(
     !p.isVisited &&
     p.distanceKm > 0 &&
     p.distanceKm <= NUDGE_MAX_KM &&
-    (p.discoveredDate ?? '') >= cutoff,
+    // When the distance was last MEASURED, not when the place was first
+    // seen: discoveredDate is kept stable for the Story timeline, so a place
+    // re-measured this morning could look a month old and be skipped.
+    (p.measuredOn ?? p.discoveredDate ?? '') >= cutoff,
   );
   if (candidates.length === 0) return null;
 
@@ -334,3 +275,95 @@ const CATEGORY_LABELS: Record<string, string> = {
   nature: 'green spaces', art: 'art places', market: 'markets',
   nightlife: 'nightlife', books: 'bookshops',
 };
+
+// ─── Nearby feed ──────────────────────────────────────────────────────
+export interface NearbyFeed {
+  /** The best matches for the user's interests and learned taste. */
+  forYou: WanderPlace[];
+  /** Everything else within range, best first. */
+  nearby: WanderPlace[];
+  /** True when the only places available are the built-in examples. */
+  examplesOnly: boolean;
+}
+
+/** How many interest matches lead the feed. */
+export const FOR_YOU_LIMIT = 5;
+/** How many further places follow them. A list, not a lucky dip. */
+export const NEARBY_LIMIT  = 20;
+/**
+ * Tolerance on the radius, as a fraction. A place 20 m past a 500 m line is
+ * still "within 500 m" to anyone looking at a map; one at 800 m is not.
+ */
+export const RADIUS_TOLERANCE = 0.05;
+
+/**
+ * The Wander feed.
+ *
+ * Replaces the old getUnifiedPersonalizedFeed, which had three faults that together
+ * read as "random places, too far away":
+ *
+ *   • It showed five places and ROTATED that window by five on every
+ *     refresh, wrapping round — so pulling to refresh pushed the best,
+ *     nearest places out and brought in the next five down the list.
+ *   • The user's interests EXCLUDED every other category rather than
+ *     ranking matches higher, so the best café 300 m away never appeared
+ *     for someone who had picked "art". tasteFactor already boosts declared
+ *     interests ×1.35 and learned taste from ratings; the filter on top of
+ *     it only hid places.
+ *   • Nothing bounded the feed to the chosen radius, so places left in the
+ *     store from a wider search stayed visible after narrowing it.
+ *
+ * Deterministic: the same places, position and preferences always produce
+ * the same order. Ties break on distance, then id — never on chance.
+ *
+ * Demo places appear only when there are no real ones at all, and are then
+ * flagged, so the screen can say they are examples.
+ */
+export function buildNearbyFeed(
+  places:           readonly WanderPlace[],
+  categoryScores:   Record<string, number>,
+  userInterests:    InterestCategory[],
+  bridgeCategories: InterestCategory[],
+  radiusKm:         number,
+  activeCategory?:  string,
+  now:              Date = new Date(),
+): NearbyFeed {
+  const hasReal      = places.some((p) => !p.isSample);
+  const limitKm      = radiusKm * (1 + RADIUS_TOLERANCE);
+  const onlyCategory = activeCategory && activeCategory !== 'all' ? activeCategory : null;
+  const preferred    = new Set<string>([...userInterests, ...bridgeCategories]);
+  const bridgeSet    = new Set<string>(bridgeCategories);
+
+  const ranked = places
+    .filter((p) => {
+      if (p.isSaved || p.isVisited) return false;           // their own sections
+      if (hasReal && p.isSample) return false;              // never mix in inventions
+      if (onlyCategory && p.category !== onlyCategory) return false;
+      if (!p.isSample && !(p.distanceKm <= limitKm)) return false;  // also rejects NaN
+      if (p.userRating === 'not_for_me') return false;      // they told us
+      return true;
+    })
+    .map((p) => ({
+      place: p,
+      // Stat bridges (coffee → café, steps → nature) boost, multiplicatively,
+      // to match the rest of the model.
+      score: relevanceScore(p, categoryScores, userInterests, now)
+           * (bridgeSet.has(p.category) ? 1.35 : 1),
+    }))
+    .sort((a, b) =>
+      b.score - a.score ||
+      a.place.distanceKm - b.place.distanceKm ||
+      a.place.placeId.localeCompare(b.place.placeId),
+    )
+    .map((r) => r.place);
+
+  // With no preferences at all there is nothing to personalise against, so
+  // the whole list is simply "near you".
+  const forYou = preferred.size === 0 || onlyCategory
+    ? []
+    : ranked.filter((p) => preferred.has(p.category)).slice(0, FOR_YOU_LIMIT);
+  const shown  = new Set(forYou.map((p) => p.placeId));
+  const nearby = ranked.filter((p) => !shown.has(p.placeId)).slice(0, NEARBY_LIMIT);
+
+  return { forYou, nearby, examplesOnly: !hasReal && ranked.length > 0 };
+}

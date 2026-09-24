@@ -8,7 +8,7 @@
  * the failure this suite exists to prevent.
  */
 import { getInitialWanderPlaces } from '@/data/samplePlaces';
-import { getUnifiedPersonalizedFeed } from '@/engine/wanderEngine';
+import { buildNearbyFeed } from '@/engine/wanderEngine';
 import type { InterestCategory } from '@/types';
 
 const ALL_CATEGORIES: InterestCategory[] = [
@@ -69,26 +69,29 @@ describe('getInitialWanderPlaces', () => {
 });
 
 /**
- * The fallback only helps if the feed actually surfaces it. The feed filters
- * to the user's declared interests, so a user with a narrow interest list must
- * still get results from the curated pool.
+ * The fallback only helps if the feed actually surfaces it — and only when
+ * there is nothing real to show. Example places carry invented distances, so
+ * the radius cannot apply to them, and they must be flagged as examples.
  */
 describe('curated pool feeds the Wander list', () => {
   const places = getInitialWanderPlaces();
+  const all = (f: ReturnType<typeof buildNearbyFeed>) => [...f.forYou, ...f.nearby];
 
   it('produces a feed for a user with no declared interests', () => {
-    expect(getUnifiedPersonalizedFeed(places, NEUTRAL_SCORES, [], [], 5).length)
-      .toBeGreaterThan(0);
+    const f = buildNearbyFeed(places, NEUTRAL_SCORES, [], [], 0.5);
+    expect(all(f).length).toBeGreaterThan(0);
+    expect(f.examplesOnly).toBe(true);
   });
 
-  it.each(ALL_CATEGORIES)('produces a feed for a user interested only in %s', (cat) => {
-    const feed = getUnifiedPersonalizedFeed(places, NEUTRAL_SCORES, [cat], [], 5);
-    expect(feed.length).toBeGreaterThan(0);
-    expect(feed.every((p) => p.category === cat)).toBe(true);
+  it.each(ALL_CATEGORIES)('leads with %s for a user interested only in it', (cat) => {
+    const f = buildNearbyFeed(places, NEUTRAL_SCORES, [cat], [], 2);
+    expect(f.forYou.length).toBeGreaterThan(0);
+    expect(f.forYou.every((p) => p.category === cat)).toBe(true);
   });
 
   it.each(ALL_CATEGORIES)('produces a feed when the %s chip is selected', (cat) => {
-    const feed = getUnifiedPersonalizedFeed(places, NEUTRAL_SCORES, [], [], 5, 0, cat);
-    expect(feed.length).toBeGreaterThan(0);
+    const f = buildNearbyFeed(places, NEUTRAL_SCORES, [], [], 2, cat);
+    expect(all(f).length).toBeGreaterThan(0);
+    expect(all(f).every((p) => p.category === cat)).toBe(true);
   });
 });

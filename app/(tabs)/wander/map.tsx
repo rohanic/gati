@@ -183,6 +183,9 @@ export default function MapScreen() {
         try {
           const loc = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
+            // Never raise Android's "turn on location" dialog from here; the
+            // map works without the user's dot.
+            mayShowUserSettingsDialog: false,
           });
           setUserCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
         } catch { /* ignored */ }

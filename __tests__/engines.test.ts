@@ -1,7 +1,7 @@
 /**
  * Recommendation and milestone engines.
  */
-import { scorePlace, getUnifiedPersonalizedFeed, filterByCategory } from '@/engine/wanderEngine';
+import { scorePlace, buildNearbyFeed, filterByCategory } from '@/engine/wanderEngine';
 import {
   checkMilestones,
   getUpcomingMilestonePrediction,
@@ -115,64 +115,90 @@ describe('scorePlace', () => {
   });
 });
 
-// ─── getUnifiedPersonalizedFeed ───────────────────────────────
+// ─── buildNearbyFeed ──────────────────────────────────────────
+//
+// The tests this replaces asserted the two behaviours users reported as bugs:
+// "restricts to declared interests" (it hid the best nearby places from
+// anyone whose interests did not include them) and "rotates the window on
+// refresh" (pulling to refresh pushed the best places out, which read as
+// random). They passed because they described the code, not what people want.
 
-describe('getUnifiedPersonalizedFeed', () => {
+describe('buildNearbyFeed', () => {
   const pool: WanderPlace[] = [
-    place({ placeId: 'a', category: 'cafe',      rating: 4.8 }),
-    place({ placeId: 'b', category: 'cafe',      rating: 4.2 }),
-    place({ placeId: 'c', category: 'nature',    rating: 4.9 }),
-    place({ placeId: 'd', category: 'nightlife', rating: 4.7 }),
-    place({ placeId: 'e', category: 'books',     rating: 4.6 }),
+    place({ placeId: 'a', category: 'cafe',      rating: 4.8, distanceKm: 0.3 }),
+    place({ placeId: 'b', category: 'cafe',      rating: 4.2, distanceKm: 0.9 }),
+    place({ placeId: 'c', category: 'nature',    rating: 4.9, distanceKm: 1.2 }),
+    place({ placeId: 'd', category: 'nightlife', rating: 4.7, distanceKm: 0.6 }),
+    place({ placeId: 'e', category: 'books',     rating: 4.6, distanceKm: 1.8 }),
   ];
+  const ids = (ps: WanderPlace[]) => ps.map((p) => p.placeId);
+  const all = (f: ReturnType<typeof buildNearbyFeed>) => [...ids(f.forYou), ...ids(f.nearby)];
 
-  it('returns at most the requested count', () => {
-    expect(getUnifiedPersonalizedFeed(pool, NEUTRAL, [], [], 3)).toHaveLength(3);
+  it('ranks interests higher without hiding everything else', () => {
+    const f = buildNearbyFeed(pool, NEUTRAL, ['cafe'], [], 2);
+    expect(f.forYou.every((p) => p.category === 'cafe')).toBe(true);
+    // The nature place is still offered — just not ahead of the cafés.
+    expect(ids(f.nearby)).toContain('c');
   });
 
-  it('restricts to declared interests plus stat-bridged categories', () => {
-    const feed = getUnifiedPersonalizedFeed(pool, NEUTRAL, ['cafe'], ['nature'], 5);
-    expect(feed.every((p) => ['cafe', 'nature'].includes(p.category))).toBe(true);
+  it('gives the same order every time — no rotation, no chance', () => {
+    const a = buildNearbyFeed(pool, NEUTRAL, ['cafe'], [], 2);
+    const b = buildNearbyFeed(pool, NEUTRAL, ['cafe'], [], 2);
+    expect(all(a)).toEqual(all(b));
   });
 
-  it('shows everything when the user has declared nothing', () => {
-    expect(getUnifiedPersonalizedFeed(pool, NEUTRAL, [], [], 10)).toHaveLength(pool.length);
+  it('keeps to the chosen radius', () => {
+    const f = buildNearbyFeed(pool, NEUTRAL, [], [], 1);
+    expect(all(f).sort()).toEqual(['a', 'b', 'd']);
   });
 
-  it('lets an explicit category chip override the interest filter', () => {
-    const feed = getUnifiedPersonalizedFeed(pool, NEUTRAL, ['cafe'], [], 5, 0, 'nightlife');
-    expect(feed.every((p) => p.category === 'nightlife')).toBe(true);
+  it('narrowing the radius removes places at once, before any refetch', () => {
+    expect(all(buildNearbyFeed(pool, NEUTRAL, [], [], 0.5))).toEqual(['a']);
   });
 
-  it('excludes saved and visited places', () => {
-    const withFlags = [
-      ...pool,
-      place({ placeId: 'saved',   isSaved: true }),
-      place({ placeId: 'visited', isVisited: true }),
-    ];
-    const ids = getUnifiedPersonalizedFeed(withFlags, NEUTRAL, [], [], 20).map((p) => p.placeId);
-    expect(ids).not.toContain('saved');
-    expect(ids).not.toContain('visited');
+  it('tolerates a place a few metres past the line, not one clearly outside', () => {
+    const edge = [place({ placeId: 'in',  distanceKm: 0.52 }),
+                  place({ placeId: 'out', distanceKm: 0.8 })];
+    expect(all(buildNearbyFeed(edge, NEUTRAL, [], [], 0.5))).toEqual(['in']);
   });
 
-  it('rotates the window on refresh without dead-ending', () => {
-    const first  = getUnifiedPersonalizedFeed(pool, NEUTRAL, [], [], 2, 0).map((p) => p.placeId);
-    const second = getUnifiedPersonalizedFeed(pool, NEUTRAL, [], [], 2, 2).map((p) => p.placeId);
-    expect(second).not.toEqual(first);
+  it('lets a category chip show only that category', () => {
+    const f = buildNearbyFeed(pool, NEUTRAL, ['cafe'], [], 2, 'nightlife');
+    expect(all(f)).toEqual(['d']);
   });
 
-  it('wraps around rather than returning nothing at a large offset', () => {
-    expect(getUnifiedPersonalizedFeed(pool, NEUTRAL, [], [], 2, 999)).toHaveLength(2);
+  it('excludes saved, visited and "not for me" places', () => {
+    const flagged = [...pool,
+      place({ placeId: 'saved',   isSaved: true,   distanceKm: 0.1 }),
+      place({ placeId: 'visited', isVisited: true, distanceKm: 0.1 }),
+      place({ placeId: 'nope',    userRating: 'not_for_me', distanceKm: 0.1 })];
+    const shown = all(buildNearbyFeed(flagged, NEUTRAL, [], [], 2));
+    for (const id of ['saved', 'visited', 'nope']) expect(shown).not.toContain(id);
+  });
+
+  it('never mixes invented example places in with real ones', () => {
+    const mixed = [...pool, place({ placeId: 'wp_001', isSample: true, distanceKm: 0.1 })];
+    const f = buildNearbyFeed(mixed, NEUTRAL, [], [], 2);
+    expect(all(f)).not.toContain('wp_001');
+    expect(f.examplesOnly).toBe(false);
+  });
+
+  it('shows examples, flagged, only when nothing real exists', () => {
+    const samples = [place({ placeId: 'wp_1', isSample: true, distanceKm: 900 })];
+    const f = buildNearbyFeed(samples, NEUTRAL, [], [], 0.5);
+    expect(all(f)).toEqual(['wp_1']);          // radius ignored: their distance is fake
+    expect(f.examplesOnly).toBe(true);
+  });
+
+  it('rejects a place whose distance is not a number', () => {
+    const broken = [place({ placeId: 'nan', distanceKm: Number.NaN })];
+    expect(all(buildNearbyFeed(broken, NEUTRAL, [], [], 10))).toEqual([]);
   });
 
   it('returns an empty feed for an empty pool', () => {
-    expect(getUnifiedPersonalizedFeed([], NEUTRAL, ['cafe'], [], 5)).toEqual([]);
-  });
-
-  it('is deterministic for the same inputs', () => {
-    const a = getUnifiedPersonalizedFeed(pool, NEUTRAL, ['cafe'], [], 3, 0);
-    const b = getUnifiedPersonalizedFeed(pool, NEUTRAL, ['cafe'], [], 3, 0);
-    expect(a.map((p) => p.placeId)).toEqual(b.map((p) => p.placeId));
+    const f = buildNearbyFeed([], NEUTRAL, ['cafe'], [], 2);
+    expect(all(f)).toEqual([]);
+    expect(f.examplesOnly).toBe(false);
   });
 });
 

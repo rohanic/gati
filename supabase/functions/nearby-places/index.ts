@@ -26,8 +26,17 @@ const NEARBY_URL  = 'https://places.googleapis.com/v1/places:searchNearby';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Requests per caller per hour. Each request is 2 Google calls. */
-const RATE_LIMIT_SIGNED_IN = 40;
-const RATE_LIMIT_ANON      = 10;
+/**
+ * Searches per hour that reach GOOGLE — cache hits are free (see below).
+ *
+ * The limit exists to protect the Places bill, not to ration the feature.
+ * 10/hour for signed-out users was hit by ordinary use once the radius
+ * became adjustable: trying 500 m → 10 km is five searches before a single
+ * refresh. Signed-out users are counted per IP, and mobile carriers put many
+ * people behind one address, so their ceiling carries headroom for that.
+ */
+const RATE_LIMIT_SIGNED_IN = 60;
+const RATE_LIMIT_ANON      = 40;
 
 const MAX_PER_REQUEST = 20;   // Google hard cap
 const MAX_RADIUS_M    = 20_000;
@@ -108,6 +117,32 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid coordinates' }, 400);
   }
 
+  // ── Cache ── checked BEFORE the rate limit.
+  // A cached answer costs Google nothing, so it should cost the user nothing
+  // either. Counting cache hits against the limit was locking people out of
+  // results the server already had.
+  // The cell has to be small relative to the radius. A cached answer is
+  // centred on whoever searched that cell first, and every later request in
+  // the same cell gets it. At 2 dp (~1.1 km) that was fine for the old 8 km
+  // searches and wrong for 500 m ones: someone could be handed results
+  // centred almost a kilometre away. 3 dp (~110 m) up to 2 km, 2 dp beyond.
+  // The client still re-measures every place from its own position and
+  // filters to its own radius, so a small offset can never show a place that
+  // is out of range — the cell only has to be small enough not to MISS
+  // places that are in range.
+  const decimals = radius <= 2_000 ? 3 : 2;
+  const cacheKey = `${latitude.toFixed(decimals)},${longitude.toFixed(decimals)},${radius}`;
+
+  const { data: cached } = await supabase
+    .from('places_cache')
+    .select('payload, created_at')
+    .eq('cache_key', cacheKey)
+    .maybeSingle();
+
+  if (cached && Date.now() - new Date(cached.created_at).getTime() < CACHE_TTL_MS) {
+    return json({ places: cached.payload, cached: true });
+  }
+
   // ── Identify the caller for rate limiting ──
   // Signed-in users are limited by account; signed-out users by IP, which is
   // coarse but enough to stop a single device looping the endpoint.
@@ -140,21 +175,6 @@ Deno.serve(async (req: Request) => {
   // search down. Fail CLOSED on an actual limit hit.
   if (!rlError && allowed === false) {
     return json({ error: 'Rate limit exceeded' }, 429);
-  }
-
-  // ── Cache ──
-  // 2dp ≈ 1.1 km. Coarse enough for a meaningful hit rate, fine enough that
-  // results are still genuinely "nearby" for an 8 km search.
-  const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)},${radius}`;
-
-  const { data: cached } = await supabase
-    .from('places_cache')
-    .select('payload, created_at')
-    .eq('cache_key', cacheKey)
-    .maybeSingle();
-
-  if (cached && Date.now() - new Date(cached.created_at).getTime() < CACHE_TTL_MS) {
-    return json({ places: cached.payload, cached: true });
   }
 
   // ── Fetch from Google ──

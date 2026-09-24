@@ -50,11 +50,14 @@ Supabase database, along with:
 
 ### Whether or not you have an account
 
-- **Approximate location**, when you use the Wander tab and grant permission.
-  This is sent to our server to search for nearby places, and is **not stored
-  against you**. Results are cached by a coordinate rounded to roughly one
-  kilometre, so a cached area cannot be traced back to an individual. Your
-  precise position is never written to a database.
+- **Location**, only when you use the Wander tab and grant permission. Your
+  position is sent to our server for that one search, so it can find places
+  within the distance you chose — as close as 500 metres, which needs your
+  actual position rather than a rough area. It is **used for the search and
+  then discarded: never stored against you, never kept as a history**.
+  Results are cached against a small area (about 110 metres, or 1 km for wide
+  searches) with no link to who asked, so a cached result cannot be traced
+  back to you. Gati never uses location in the background.
 - **Place ratings**, if you rate a place while signed in. Stored as a place
   identifier, your account id, and the rating, and used to compute an aggregate
   quality score shown to other users. Only the aggregate is ever displayed —
@@ -75,7 +78,7 @@ Supabase database, along with:
 |---|---|---|
 | **Supabase** | Your account data (only if you sign in) | Database, authentication, backup |
 | **Google Play Services** | Your Google account, if you choose Google sign-in | Authentication |
-| **Google Places** | An approximate coordinate, via our server | Finding real places near you |
+| **Google Places** | The search position and radius, via our server — nothing about you | Finding real places near you |
 | **Google Play Billing** | Handled entirely by Google | Subscriptions, if you buy one |
 | **Expo Push / Firebase** | A device push token | Delivering notifications |
 | **OpenAI** | A place name and category — never anything about you | One-line "why this place" blurbs |

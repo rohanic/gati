@@ -190,19 +190,37 @@ describe('gati-user v2 → v3 (authPromptSeen)', () => {
   });
 });
 
-describe('gati-wander v1 → v2 (searchRadiusKm)', () => {
+describe('gati-wander → v3 (radius 0.5–10 km, 2 km default)', () => {
   const migrate = (useWanderStore as unknown as Migratable).persist.getOptions().migrate!;
+  const radius = (p: unknown, from: number) => (migrate(p, from) as { searchRadiusKm: number }).searchRadiusKm;
 
-  it('gives an upgrading user the default radius', () => {
+  it('gives an upgrading user the new default, never NaN', () => {
     // Undefined would reach the search as NaN metres.
-    const out = migrate({ places: [], categoryScores: {} }, 1) as { searchRadiusKm: number };
-    expect(out.searchRadiusKm).toBe(10);
-    expect(Number.isFinite(out.searchRadiusKm)).toBe(true);
+    expect(radius({ places: [], categoryScores: {} }, 1)).toBe(2);
   });
 
-  it('keeps a radius the user already chose', () => {
-    const out = migrate({ places: [], searchRadiusKm: 25 }, 1) as { searchRadiusKm: number };
-    expect(out.searchRadiusKm).toBe(25);
+  it('moves the old 10 km default to the new one', () => {
+    // 10 km was the default almost nobody chose, and is the "area is too big"
+    // this change exists to fix.
+    expect(radius({ places: [], searchRadiusKm: 10 }, 2)).toBe(2);
+  });
+
+  it('keeps a radius the user chose that is still offered', () => {
+    expect(radius({ places: [], searchRadiusKm: 5 }, 2)).toBe(5);
+    expect(radius({ places: [], searchRadiusKm: 2 }, 2)).toBe(2);
+  });
+
+  it('snaps radii that are no longer offered to the nearest one', () => {
+    expect(radius({ places: [], searchRadiusKm: 25 }, 2)).toBe(10);
+    expect(radius({ places: [], searchRadiusKm: 50 }, 2)).toBe(10);
+  });
+
+  it('drops invented demo places, keeping real ones', () => {
+    const out = migrate({ searchRadiusKm: 2, places: [
+      { placeId: 'wp_001', isSample: true },
+      { placeId: 'gp_real' },
+    ] }, 2) as { places: { placeId: string }[] };
+    expect(out.places.map((p) => p.placeId)).toEqual(['gp_real']);
   });
 
   it('chains through v0 so an old install gets places AND a radius', () => {
@@ -210,7 +228,7 @@ describe('gati-wander v1 → v2 (searchRadiusKm)', () => {
       places: unknown[]; searchRadiusKm: number; categoryScores: Record<string, number>;
     };
     expect(Array.isArray(out.places)).toBe(true);
-    expect(out.searchRadiusKm).toBe(10);
+    expect(out.searchRadiusKm).toBe(2);
     expect(out.categoryScores.cafe).toBe(2.0);
   });
 });

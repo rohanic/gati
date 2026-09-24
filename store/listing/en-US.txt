@@ -104,7 +104,7 @@ BUILT PROPERLY
 • Works fully without an account — everything lives on your phone
 • No ads, anywhere
 • No analytics, no tracking, no advertising ID
-• Your approximate location is used to find places and is never stored
+• Your location is used only for the place search you ask for, and never stored
   against you
 • Sign in only if you want your data on a second device
 • Delete everything from inside the app, in two taps
