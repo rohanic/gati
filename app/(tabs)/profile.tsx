@@ -59,6 +59,16 @@ import { colors, spacing, radius, fontFamily, shadow } from '@/theme';
 import type { ExerciseFrequency, InterestCategory } from '@/types';
 import { Text } from '@/components/ui/Text';
 import { useEntrance } from '@/hooks/useEntrance';
+import Constants from 'expo-constants';
+
+/**
+ * The version that shipped, read from the app config baked into the build.
+ *
+ * Both uses below were a hard-coded '1.0.0', so the footer told people on
+ * 1.2.1 they were running 1.0.0, and every data export was stamped with a
+ * version that never existed. Reading it means the next bump cannot drift.
+ */
+const APP_VERSION = Constants.expoConfig?.version ?? '';
 
 // ─── Constants ────────────────────────────────────────────────
 const EXERCISE_OPTIONS: { value: ExerciseFrequency; label: string }[] = [
@@ -725,7 +735,7 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const exportData = {
       exportedAt: new Date().toISOString(),
-      version:    '1.0.0',
+      version:    APP_VERSION,
       profile,
       stats: {
         unlockedStats,
@@ -1202,7 +1212,7 @@ export default function ProfileScreen() {
           />
         </SectionCard>
 
-        <Text style={styles.version}>Gati  ·  Version 1.0.0</Text>
+        <Text style={styles.version}>Gati  ·  Version {APP_VERSION}</Text>
       </ScrollView>
 
       {/* ── Modals ── */}
